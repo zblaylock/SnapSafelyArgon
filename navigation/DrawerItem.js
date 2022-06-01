@@ -4,6 +4,7 @@ import { Block, Text, theme } from "galio-framework";
 
 import Icon from "../components/Icon";
 import argonTheme from "../constants/Theme";
+import {getStoreString, removeStore, STORED_KEYS} from "../service/store";
 
 class DrawerItem extends React.Component {
   renderIcon = () => {
@@ -14,7 +15,7 @@ class DrawerItem extends React.Component {
       case "Snap":
         return (
           <Icon
-            name="camera-enhance"
+            name="bell"
             family="ArgonExtra"
             size={14}
             color={focused ? "white" : argonTheme.COLORS.PRIMARY}
@@ -23,7 +24,7 @@ class DrawerItem extends React.Component {
       case "History":
         return (
           <Icon
-            name="history"
+            name="bell"
             family="ArgonExtra"
             size={14}
             color={focused ? "white" : argonTheme.COLORS.PRIMARY}
@@ -32,7 +33,7 @@ class DrawerItem extends React.Component {
       case "Settings":
         return (
           <Icon
-            name="data-settings"
+            name="bell"
             family="ArgonExtra"
             size={14}
             color={focused ? "white" : argonTheme.COLORS.PRIMARY}
@@ -98,7 +99,7 @@ class DrawerItem extends React.Component {
       case "Log out":
         return (
           <Icon
-            name="logout"
+            name="bell"
             family="ArgonExtra"
             size={14}
             color={focused ? "white" : "rgba(0,0,0,0.5)"}
@@ -108,6 +109,14 @@ class DrawerItem extends React.Component {
         return null;
     }
   };
+
+  async logout(navigation) {
+    console.log("*** LOGOUT ***")
+    await removeStore(STORED_KEYS.SS_DOMAIN);
+    await removeStore(STORED_KEYS.SS_API_KEY);
+    await removeStore(STORED_KEYS.SS_API_SECRET);
+    navigation.navigate('Onboarding');
+  }
 
   render() {
     const { focused, title, navigation } = this.props;
@@ -120,24 +129,15 @@ class DrawerItem extends React.Component {
     return (
       <TouchableOpacity
         style={{ height: 60 }}
-        onPress={() =>
-          title === "Getting Started"
-            ? Linking.openURL(
-                "https://demos.creative-tim.com/argon-pro-react-native/docs/"
-              ).catch(err => console.error("An error occurred", err))
-            : navigation.navigate(title)
-        }
-      >
+        onPress={() => title === "Log out"
+            ? this.logout(navigation)
+            : navigation.navigate(title)}>
         <Block flex row style={containerStyles}>
           <Block middle flex={0.1} style={{ marginRight: 5 }}>
             {this.renderIcon()}
           </Block>
           <Block row center flex={0.9}>
-            <Text
-              size={15}
-              bold={!!focused}
-              color={focused ? "white" : "rgba(0,0,0,0.5)"}
-            >
+            <Text size={15} bold={!!focused} color={focused ? "white" : "rgba(0,0,0,0.5)"}>
               {title}
             </Text>
           </Block>

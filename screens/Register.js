@@ -26,13 +26,8 @@ class Register extends React.Component {
   }
   
   async componentDidMount() {
-    console.log('register ' + this.props.isLogOut);
-    if (this.props.isLogOut) {
-      console.log("SUCCESS LOGOUT");
-      await removeStore(STORED_KEYS.SS_DOMAIN);
-      await removeStore(STORED_KEYS.SS_API_KEY);
-      await removeStore(STORED_KEYS.SS_API_SECRET);
-    }
+    console.log("*** Register ***");
+    console.log(this.props);
   }
 
   async openCreateAccountBrowser() {

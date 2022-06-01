@@ -4,6 +4,7 @@ import { Image, ScrollView, StyleSheet } from "react-native";
 import { DrawerItem as DrawerCustomItem } from "../components";
 import Images from "../constants/Images";
 import React from "react";
+import {removeStore, STORED_KEYS} from "../service/store";
 
 function CustomDrawerContent({
   drawerPosition,
@@ -15,9 +16,12 @@ function CustomDrawerContent({
 }) {
   const screens = [
     "Snap", "History", "Settings", "Account", // Main
-    "Home", "Elements", // Dev
+    // "Home", "Elements", // Dev
     // "Profile", "Elements", "Articles" // Unused
   ];
+  console.log("*** CustomDrawerContent navigation ***")
+  console.log(navigation);
+  
   return (
     <Block
       style={styles.container}
