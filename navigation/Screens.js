@@ -155,8 +155,6 @@ function AppStack(props) {
       <Drawer.Screen name="Snap" component={SnapStack} />
       <Drawer.Screen name="History" component={HistoryStack} />
       <Drawer.Screen name="Settings" component={SettingsStack} />
-      <Drawer.Screen name="Account" component={RegisterStack} />
-      {/*<Drawer.Navigator name="Log out" initialParams={{isLogout: true}} >*/}
       {/* MAIN ROUTES */}
       {/* DEV ROUTES */}
       <Drawer.Screen name="Home" component={HomeStack} />
