@@ -1,10 +1,10 @@
 import React, {useState} from "react";
 import { Image } from "react-native";
 import AppLoading from "expo-app-loading";
-import { useFonts } from '@use-expo/font';
 import { Asset } from "expo-asset";
 import { Block, GalioProvider } from "galio-framework";
 import { NavigationContainer } from "@react-navigation/native";
+import * as Font from 'expo-font';
 
 // Before rendering any navigation stack
 import { enableScreens } from "react-native-screens";
@@ -37,46 +37,57 @@ function cacheImages(images) {
   });
 }
 
-export default props => {
-  const [isLoadingComplete, setLoading] = useState(false);
-  let [fontsLoaded] = useFonts({
-    'ArgonExtra': require('./assets/font/argon.ttf'),
-  });
+export default class App extends React.Component {
+  state = {
+    isLoadingComplete: false,
+    fontsLoaded: false
+  };
 
-  function _loadResourcesAsync() {
+  async componentDidMount() {
+    await Font.loadAsync({
+      'ArgonExtra': require('./assets/font/argon.ttf')
+    });
+    this.setState({ fontsLoaded: true });
+  }
+
+  _loadResourcesAsync = async () => {
     return Promise.all([...cacheImages(assetImages)]);
   }
 
-  function _handleLoadingError(error) {
+  _handleLoadingError = (error) => {
     // In this case, you might want to report the error to your error
     // reporting service, for example Sentry
     console.warn(error);
   };
 
- function _handleFinishLoading() {
-    setLoading(true);
+ _handleFinishLoading = () => {
+    this.setState({ isLoadingComplete: true });
   };
 
-  if(!fontsLoaded && !isLoadingComplete) {
-    return (
-      <AppLoading
-        startAsync={_loadResourcesAsync}
-        onError={_handleLoadingError}
-        onFinish={_handleFinishLoading}
-      />
-    );
-  } else if(fontsLoaded) {
-    return (
-      <NavigationContainer>
-        <GalioProvider theme={argonTheme}>
-          <Block flex>
-            <Screens />
-          </Block>
-        </GalioProvider>
-      </NavigationContainer>
-    );
-  } else {
-    return null
+ render()
+  {
+    console.log("Font Loaded : " + this.state.fontsLoaded)
+    if (!this.state.fontsLoaded && !this.state.isLoadingComplete) {
+      return (
+        <AppLoading
+          startAsync={this._loadResourcesAsync}
+          onError={this._handleLoadingError}
+          onFinish={this._handleFinishLoading}
+        />
+      );
+    } else if (this.state.fontsLoaded) {
+      return (
+        <NavigationContainer>
+          <GalioProvider theme={argonTheme}>
+            <Block flex>
+              <Screens/>
+            </Block>
+          </GalioProvider>
+        </NavigationContainer>
+      );
+    } else {
+      return null
+    }
   }
 }
 

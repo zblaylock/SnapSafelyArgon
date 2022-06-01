@@ -12,8 +12,27 @@ const { height, width } = Dimensions.get("screen");
 
 import argonTheme from "../constants/Theme";
 import Images from "../constants/Images";
+import {getStoreString, STORED_KEYS} from "../service/store";
 
 class Onboarding extends React.Component {
+  
+  async componentDidMount() {
+    const { navigation } = this.props;
+    const domain = await getStoreString(STORED_KEYS.SS_DOMAIN);
+    const apiKey = await getStoreString(STORED_KEYS.SS_API_KEY);
+    const apiSecret = await getStoreString(STORED_KEYS.SS_API_SECRET);
+    console.log("domain")
+    console.log(domain)
+    console.log("apiKey")
+    console.log(apiKey)
+    console.log("apiSecret")
+    console.log(apiSecret)
+    if (domain && apiKey && apiSecret) {
+      // TODO: Verify sendsafely auth
+      navigation.navigate('App');
+    }
+  }
+
   render() {
     const { navigation } = this.props;
 
@@ -52,7 +71,7 @@ class Onboarding extends React.Component {
                 <Button
                   style={styles.button}
                   color={argonTheme.COLORS.SECONDARY}
-                  onPress={() => navigation.navigate("App")}
+                  onPress={() => navigation.navigate("Account")}
                   textStyle={{ color: argonTheme.COLORS.BLACK }}
                 >
                   Get Started

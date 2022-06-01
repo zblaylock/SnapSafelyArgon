@@ -1,6 +1,6 @@
 import Button from './Button';
 import Card from './Card';
-import DrawerItem from './DrawerItem';
+import DrawerItem from '../navigation/DrawerItem';
 import Icon from './Icon';
 import Header from './Header';
 import Input from './Input';

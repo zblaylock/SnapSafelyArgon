@@ -2,7 +2,7 @@ import React from "react";
 import { StyleSheet, TouchableOpacity, Linking } from "react-native";
 import { Block, Text, theme } from "galio-framework";
 
-import Icon from "./Icon";
+import Icon from "../components/Icon";
 import argonTheme from "../constants/Theme";
 
 class DrawerItem extends React.Component {
@@ -10,6 +10,37 @@ class DrawerItem extends React.Component {
     const { title, focused } = this.props;
 
     switch (title) {
+      /*** MAIN ITEMS ***/
+      case "Snap":
+        return (
+          <Icon
+            name="camera-enhance"
+            family="ArgonExtra"
+            size={14}
+            color={focused ? "white" : argonTheme.COLORS.PRIMARY}
+          />
+        );
+      case "History":
+        return (
+          <Icon
+            name="history"
+            family="ArgonExtra"
+            size={14}
+            color={focused ? "white" : argonTheme.COLORS.PRIMARY}
+          />
+        );
+      case "Settings":
+        return (
+          <Icon
+            name="data-settings"
+            family="ArgonExtra"
+            size={14}
+            color={focused ? "white" : argonTheme.COLORS.PRIMARY}
+          />
+        );
+      /*** MAIN ITEMS ***/
+
+      /*** DEV ITEMS ***/
       case "Home":
         return (
           <Icon
@@ -62,8 +93,17 @@ class DrawerItem extends React.Component {
           size={14}
           color={focused ? "white" : "rgba(0,0,0,0.5)"}
         />);
+      /*** DEV ITEMS ***/
+
       case "Log out":
-        return <Icon />;
+        return (
+          <Icon
+            name="logout"
+            family="ArgonExtra"
+            size={14}
+            color={focused ? "white" : "rgba(0,0,0,0.5)"}
+          />
+        );
       default:
         return null;
     }
@@ -81,7 +121,7 @@ class DrawerItem extends React.Component {
       <TouchableOpacity
         style={{ height: 60 }}
         onPress={() =>
-          title == "Getting Started"
+          title === "Getting Started"
             ? Linking.openURL(
                 "https://demos.creative-tim.com/argon-pro-react-native/docs/"
               ).catch(err => console.error("An error occurred", err))
@@ -95,7 +135,7 @@ class DrawerItem extends React.Component {
           <Block row center flex={0.9}>
             <Text
               size={15}
-              bold={focused ? true : false}
+              bold={!!focused}
               color={focused ? "white" : "rgba(0,0,0,0.5)"}
             >
               {title}

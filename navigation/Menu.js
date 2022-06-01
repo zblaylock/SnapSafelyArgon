@@ -13,7 +13,11 @@ function CustomDrawerContent({
   state,
   ...rest
 }) {
-  const screens = ["Home", "Profile", "Account", "Elements", "Articles"];
+  const screens = [
+    "Snap", "History", "Settings", "Account", // Main
+    "Home", "Elements", // Dev
+    // "Profile", "Elements", "Articles" // Unused
+  ];
   return (
     <Block
       style={styles.container}
@@ -46,10 +50,10 @@ function CustomDrawerContent({
               }}
             />
             <Text color="#8898AA" style={{ marginTop: 16, marginLeft: 8 }}>
-              DOCUMENTATION
+              OPTIONS
             </Text>
           </Block>
-          <DrawerCustomItem title="Getting Started" navigation={navigation} />
+          <DrawerCustomItem title="Log out" navigation={navigation} />
         </ScrollView>
       </Block>
     </Block>
