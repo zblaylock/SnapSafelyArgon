@@ -1,12 +1,28 @@
 import React, {useState, useEffect, useRef} from 'react';
-import {StyleSheet, Text, View, TouchableOpacity, Dimensions, SafeAreaView} from 'react-native';
+import {
+    StyleSheet,
+    Text,
+    View,
+    TouchableOpacity,
+    Dimensions,
+    SafeAreaView,
+    Alert,
+    Modal,
+    KeyboardAvoidingView
+} from 'react-native';
 import { Camera } from 'expo-camera';
 import * as MediaLibrary from "expo-media-library";
+import {Block} from "galio-framework";
+import Pressable from "react-native/Libraries/Components/Pressable/Pressable";
+import {Button, Icon, Input} from "./index";
+import {argonTheme} from "../constants";
 // import { Video } from "expo-av";
 
 const WINDOW_HEIGHT = Dimensions.get("window").height;
 const closeButtonSize = Math.floor(WINDOW_HEIGHT * 0.032);
 const saveButtonSize = Math.floor(WINDOW_HEIGHT * 0.05);
+const addRecipientButtonSize = Math.floor(WINDOW_HEIGHT * 0.032);
+const sendButtonSize = Math.floor(WINDOW_HEIGHT * 0.05);
 const captureSize = Math.floor(WINDOW_HEIGHT * 0.09);
 
 export default function CameraComponent() {
@@ -17,6 +33,8 @@ export default function CameraComponent() {
     const [isPreview, setIsPreview] = useState(false);
     const [isCameraReady, setIsCameraReady] = useState(false);
     const [source, setSource] = useState(null);
+    const [modalVisible, setModalVisible] = useState(false);
+    const [recipient, setRecipient] = useState(null);
     // const [isVideoRecording, setIsVideoRecording] = useState(false);
     // const [videoSource, setVideoSource] = useState(null);
     const cameraRef = useRef();
@@ -118,14 +136,30 @@ export default function CameraComponent() {
         </TouchableOpacity>
     );
 
+    const showRecipient = async () => {
+        console.log("*** showRecipient ***");
+        setModalVisible(true);
+    }
+    
     const addRecipient = async () => {
-      
+        console.log("*** addRecipient ***");
     }
     
     const renderAddRecipientButton = () => (
-        <TouchableOpacity onPress={addRecipient} style={styles.addRecipientButton}>
-            <Text>{"Add Recipients"}</Text>
+        <TouchableOpacity onPress={showRecipient} style={styles.addRecipientButton}>
+            <View style={[styles.closeCross, { transform: [{ rotate: "90deg" }] }]} />
+            <View style={[styles.closeCross]} />
         </TouchableOpacity>
+    );
+
+    const sendPreview = async () => {
+        
+    }
+    
+    const renderSendPreviewButton = () => (
+      <TouchableOpacity onPress={sendPreview} style={styles.sendButton}>
+          <Text>{"Send"}</Text>
+      </TouchableOpacity>
     );
 
     // const renderVideoPlayer = () => (
@@ -166,24 +200,44 @@ export default function CameraComponent() {
     }
     return (
       <SafeAreaView style={styles.container}>
-          <Camera
-            ref={cameraRef}
-            style={styles.container}
-            type={cameraType}
-            flashMode={Camera.Constants.FlashMode.on}
+          <Camera ref={cameraRef} style={styles.container} type={cameraType} flashMode={Camera.Constants.FlashMode.on}
             onCameraReady={onCameraReady}
             onMountError={(error) => {
-                console.log("cammera error", error);
-            }}
-          />
+                console.log("cammera error", error) }}/>
           <View style={styles.container}>
               {/*{isVideoRecording && renderVideoRecordIndicator()}*/}
               {/*{videoSource && renderVideoPlayer()}*/}
               {isPreview && renderCancelPreviewButton()}
               {isPreview && hasSavePermission && renderSavePreviewButton()}
+              {isPreview && renderAddRecipientButton()}
+              {isPreview && renderSendPreviewButton()}
               {/*{!videoSource && !isPreview && renderCaptureControl()}*/}
               {!isPreview && renderCaptureControl()}
           </View>
+          <Modal animationType="slide" transparent={true} visible={modalVisible}
+            onRequestClose={() => {Alert.alert("Modal has been closed."); setModalVisible(!modalVisible);}}>
+              <View style={styles.modalCenteredView}>
+                  <View style={styles.modalView}>
+                      <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeModalButton}>
+                          <View style={[styles.closeCross, { transform: [{ rotate: "45deg" }] }]} />
+                          <View style={[styles.closeCross, { transform: [{ rotate: "-45deg" }] }]} />
+                      </TouchableOpacity>
+                      <Text style={styles.modalText}>Add Recipient</Text>
+                      <Block center>
+                          <Block middle style={{marginLeft: 15, marginRight: 15}}>
+                              <Input placeholder="Recipient" onChangeText={(val) => this.setState({recipient: val})} value={recipient}/>
+                          </Block>
+                          <Block middle>
+                              <Button color="primary" onPress={addRecipient} style={styles.createButton}>
+                                  <Text bold size={14} color={argonTheme.COLORS.WHITE}>
+                                      ADD
+                                  </Text>
+                              </Button>
+                          </Block>
+                      </Block>
+                  </View>
+              </View>
+          </Modal>
       </SafeAreaView>
     );
 }
@@ -194,7 +248,7 @@ const styles = StyleSheet.create({
     },
     closeButton: {
         position: "absolute",
-        top: 35,
+        top: 15,
         left: 15,
         height: closeButtonSize,
         width: closeButtonSize,
@@ -207,11 +261,53 @@ const styles = StyleSheet.create({
     },
     saveButton: {
         position: "absolute",
-        bottom: 35,
+        bottom: 15,
         left: 15,
         height: saveButtonSize,
         width: saveButtonSize,
         borderRadius: Math.floor(saveButtonSize / 2),
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "#c4c5c4",
+        color: "black",
+        opacity: 0.7,
+        zIndex: 2,
+    },
+    closeModalButton: {
+        position: "absolute",
+        top: 15,
+        right: 15,
+        height: addRecipientButtonSize,
+        width: addRecipientButtonSize,
+        borderRadius: Math.floor(addRecipientButtonSize / 2),
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "#c4c5c4",
+        color: "black",
+        opacity: 0.7,
+        zIndex: 2,
+    },
+    addRecipientButton: {
+        position: "absolute",
+        top: 15,
+        right: 15,
+        height: addRecipientButtonSize,
+        width: addRecipientButtonSize,
+        borderRadius: Math.floor(addRecipientButtonSize / 2),
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "#c4c5c4",
+        color: "black",
+        opacity: 0.7,
+        zIndex: 2,
+    },
+    sendButton: {
+        position: "absolute",
+        bottom: 15,
+        right: 15,
+        height: sendButtonSize,
+        width: sendButtonSize,
+        borderRadius: Math.floor(sendButtonSize / 2),
         justifyContent: "center",
         alignItems: "center",
         backgroundColor: "#c4c5c4",
@@ -268,4 +364,43 @@ const styles = StyleSheet.create({
     text: {
         color: "#fff",
     },
+    modalCenteredView: {
+        position: 'relative',
+        flex: 1,
+        justifyContent: "flex-start",
+        alignItems: "center",
+        marginTop: 22
+    },
+    modalView: {
+        margin: 20,
+        backgroundColor: "white",
+        borderRadius: 20,
+        padding: 35,
+        alignItems: "center",
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 2
+        },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+        elevation: 5
+    },
+    modalButton: {
+        borderRadius: 20,
+        padding: 10,
+        elevation: 2
+    },
+    modalButtonClose: {
+        backgroundColor: "#2196F3",
+    },
+    modalTextStyle: {
+        color: "white",
+        fontWeight: "bold",
+        textAlign: "center"
+    },
+    modalText: {
+        marginBottom: 15,
+        textAlign: "center"
+    }
 });

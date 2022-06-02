@@ -9,7 +9,7 @@ import { argonTheme } from "../constants";
 
 class ArInput extends React.Component {
   render() {
-    const { shadowless, success, error } = this.props;
+    const { shadowless, success, error, noIcon } = this.props;
 
     const inputStyles = [
       styles.input,
@@ -26,12 +26,13 @@ class ArInput extends React.Component {
         style={inputStyles}
         color={argonTheme.COLORS.HEADER}
         iconContent={
+          noIcon ?
           <Icon
             size={14}
             color={argonTheme.COLORS.ICON}
             name="link"
             family="AntDesign"
-          />
+          /> : null
         }
         {...this.props}
       />
