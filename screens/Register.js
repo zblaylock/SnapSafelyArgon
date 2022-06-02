@@ -6,12 +6,14 @@ import {
   StatusBar,
   KeyboardAvoidingView, Linking
 } from "react-native";
-import {Block, Checkbox, Text, theme} from "galio-framework";
+import {Block, Text, theme} from "galio-framework";
 
 import {Button, Icon, Input} from "../components";
 import {Images, argonTheme} from "../constants";
-import {removeStore, STORED_KEYS, storeString} from "../service/store";
+import {addStoredKeys, isAuthorized} from "../common/store";
 import {SS_API} from "../constants/api";
+import {authenticate} from "../service/auth";
+import {isSuccessResponse} from "../common/utils";
 
 const {width, height} = Dimensions.get("screen");
 
@@ -20,14 +22,25 @@ class Register extends React.Component {
     super(props);
     this.state= {
       domain: null,
+      email: null,
+      password: null,
       apiKey: null,
-      apiSecret: null
+      apiSecret: null,
+      notification: null
     }
   }
   
   async componentDidMount() {
+    const {navigation} = this.props;
     console.log("*** Register ***");
     console.log(this.props);
+    if (await isAuthorized()) {
+      navigation.navigate('Snap');
+    }
+  }
+  
+  componentWillUnmount() {
+    this.setState(prevState => ({notification: null}));
   }
 
   async openCreateAccountBrowser() {
@@ -35,28 +48,37 @@ class Register extends React.Component {
   }
 
   async saveConfig(navigation) {
-    console.log(this.state.domain);
-    console.log(this.state.apiKey);
-    console.log(this.state.apiSecret);
-    await storeString(STORED_KEYS.SS_DOMAIN, this.state.domain);
-    await storeString(STORED_KEYS.SS_API_KEY, this.state.apiKey);
-    await storeString(STORED_KEYS.SS_API_SECRET, this.state.apiSecret);
-    
-    //TODO Validate sendsafely authentication and redirect
-    if (this.state.domain && this.state.apiKey && this.state.apiSecret) {
-      navigation.navigate('App');
+    if (this.state.domain, this.state.email, this.state.password) {
+      authenticate(this.state.domain, this.state.email, this.state.password).then(auth => {
+        console.log(auth.data);
+        if (isSuccessResponse(auth.data)) {
+          this.setState(prevState => ({notification:
+              {...prevState.notification, message: "Success!", type: 'success'}}))
+          console.log("*** Authenticate Response ***");
+          addStoredKeys(this.state.domain, auth.data.apiKey, auth.data.apiSecret)
+          setTimeout(() => navigation.navigate('Snap'), 2000);
+        } else {
+          this.setState(prevState => ({notification: 
+              {...prevState.notification, message: auth.data.message, type: 'error'}}))
+        }
+      }).catch(err => {
+        console.log(err);
+        this.setState(prevState => ({notification: 
+            {...prevState.notification, message: "Please enter valid domain", type: 'error'}}));
+      })
+    } else {
+      this.setState(prevState => ({notification: 
+          {...prevState.notification, message: "Please enter valid credentials", type: 'error'}}));
     }
   }
 
   render() {
     const { navigation } = this.props;
+    const {  } = this.state;
     return (
       <Block flex middle>
         <StatusBar hidden/>
-        <ImageBackground
-          source={Images.RegisterBackground}
-          style={{width, height, zIndex: 1}}
-        >
+        <ImageBackground source={Images.RegisterBackground} style={{width, height, zIndex: 1}}>
           <Block safe flex middle>
             <Block style={styles.registerContainer}>
               <Block flex={0.25} middle style={styles.socialConnect}>
@@ -66,13 +88,7 @@ class Register extends React.Component {
                 <Block row style={{marginTop: theme.SIZES.BASE}}>
                   <Button style={styles.socialButtons}>
                     <Block row>
-                      <Icon
-                        name="logo-google"
-                        family="Ionicon"
-                        size={14}
-                        color={"black"}
-                        style={{marginTop: 2, marginRight: 5}}
-                      />
+                      <Icon name="logo-google" family="Ionicon" size={14} color={"black"} style={{marginTop: 2, marginRight: 5}}/>
                       <Text style={styles.socialTextButtons}>GOOGLE</Text>
                     </Block>
                   </Button>
@@ -84,80 +100,57 @@ class Register extends React.Component {
                     Or sign up the classic way
                   </Text>
                 </Block>
+                <Block middle style={{marginLeft: 15, marginRight: 15}}>
+                  {this.state.notification &&
+                  <Button style={styles.notification} disabled color={this.state.notification.type}>
+                    {this.state.notification.message}
+                  </Button>}
+                </Block>
                 <Block flex center>
                   <KeyboardAvoidingView style={{flex: 1}} behavior="padding" enabled>
                     <Block middle style={{marginLeft: 15, marginRight: 15}}>
-                      <Input
-                        borderless
-                        placeholder="www.sendsafely.com"
-                        onChangeText={(val) => this.setState({domain: val})}
-                        value={this.state.domain}
-                        iconContent={
-                          <Icon
-                            size={16}
-                            color={argonTheme.COLORS.ICON}
-                            name="ic_mail_24px"
-                            family="ArgonExtra"
-                            style={styles.inputIcons}
-                          />
-                        }
-                      />
+                      <Input borderless placeholder="www.sendsafely.com" 
+                             onChangeText={(val) => this.setState({domain: val})} 
+                             value={this.state.domain}
+                             iconContent={<Icon size={16} color={argonTheme.COLORS.ICON} name="hat-3" family="ArgonExtra" style={styles.inputIcons}/>}/>
                     </Block>
                     <Block middle style={{marginLeft: 15, marginRight: 15}}>
-                      <Input
-                        borderless
-                        placeholder="Api Key"
-                        onChangeText={(val) => this.setState({apiKey: val})}
-                        value={this.state.apiKey}
-                        iconContent={
-                          <Icon
-                            size={16}
-                            color={argonTheme.COLORS.ICON}
-                            name="hat-3"
-                            family="ArgonExtra"
-                            style={styles.inputIcons}
-                          />
-                        }
-                      />
+                      <Input borderless placeholder="Email" 
+                             onChangeText={(val) => this.setState({email: val})} 
+                             value={this.state.email}
+                             iconContent={<Icon size={16} color={argonTheme.COLORS.ICON} name="ic_mail_24px" family="ArgonExtra" style={styles.inputIcons}/>}/>
                     </Block>
                     <Block middle style={{marginLeft: 15, marginRight: 15}}>
-                      <Input
-                        password
-                        borderless
-                        placeholder="Secret"
-                        onChangeText={(val) => this.setState({apiSecret: val})}
-                        value={this.state.apiSecret}
-                        iconContent={
-                          <Icon
-                            size={16}
-                            color={argonTheme.COLORS.ICON}
-                            name="padlock-unlocked"
-                            family="ArgonExtra"
-                            style={styles.inputIcons}
-                          />
-                        }
-                      />
+                      <Input password borderless placeholder="Password" 
+                             onChangeText={(val) => this.setState({password: val})} 
+                             value={this.state.password} 
+                             iconContent={<Icon size={16} color={argonTheme.COLORS.ICON} name="padlock-unlocked" family="ArgonExtra" style={styles.inputIcons}/>}/>
                     </Block>
                     <Block middle>
                       <Button color="primary" onPress={() => this.saveConfig(navigation)} style={styles.createButton}>
                         <Text bold size={14} color={argonTheme.COLORS.WHITE}>
-                          SAVE
+                          Login
                         </Text>
                       </Button>
                     </Block>
                     <Block middle style={styles.passwordCheck}>
                       <Text size={12} color={argonTheme.COLORS.MUTED}>
-                        If you need to generate a new api key and secret or have not registered an account, please
-                        follow the link below to create or access an account.
+                        If you have not registered an account, please
+                        follow the link below to create and account.
                       </Text>
-                    </Block>
-                    <Block middle>
                       <Button color="primary" onPress={this.openCreateAccountBrowser} style={styles.createButton}>
                         <Text bold size={14} color={argonTheme.COLORS.WHITE}>
-                          ACCESS ACCOUNT
+                          CREATE ACCOUNT
                         </Text>
                       </Button>
                     </Block>
+                    {/*<Block middle>*/}
+                    {/*  <Button color="primary" onPress={this.openCreateAccountBrowser} style={styles.createButton}>*/}
+                    {/*    <Text bold size={14} color={argonTheme.COLORS.WHITE}>*/}
+                    {/*      CREATE ACCOUNT*/}
+                    {/*    </Text>*/}
+                    {/*  </Button>*/}
+                    {/*</Block>*/}
                   </KeyboardAvoidingView>
                 </Block>
               </Block>
@@ -171,6 +164,10 @@ class Register extends React.Component {
 
 const styles = StyleSheet.create({
   input: {},
+  notification: {
+    // marginBottom: theme.SIZES.BASE,
+    width: width - theme.SIZES.BASE * 2,
+  },
   registerContainer: {
     width: width * 0.9,
     height: height * 0.875,

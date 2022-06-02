@@ -12,7 +12,7 @@ const { height, width } = Dimensions.get("screen");
 
 import argonTheme from "../constants/Theme";
 import Images from "../constants/Images";
-import {getStoreString, removeStore, STORED_KEYS} from "../service/store";
+import {getStoreString, isAuthorized, removeStore, STORED_KEYS} from "../common/store";
 import {CommonActions} from "@react-navigation/native";
 
 class Onboarding extends React.Component {
@@ -20,28 +20,17 @@ class Onboarding extends React.Component {
   async componentDidUpdate(prevProps, prevState, snapshot) {
     console.log("*** Onboarding PROPS ***");
     console.log(this.props);
-    const domain = await getStoreString(STORED_KEYS.SS_DOMAIN);
-    const apiKey = await getStoreString(STORED_KEYS.SS_API_KEY);
-    const apiSecret = await getStoreString(STORED_KEYS.SS_API_SECRET);
-    console.log("domain : " + domain);
-    console.log("apiKey : " + apiKey);
-    console.log("apiSecret : " + apiSecret);
+    await isAuthorized();
   }
 
   async componentDidMount() {
-    const { navigation } = this.props;
+    const {navigation} = this.props;
     console.log("*** Onboarding PROPS ***");
     console.log(this.props);
-    const domain = await getStoreString(STORED_KEYS.SS_DOMAIN);
-    const apiKey = await getStoreString(STORED_KEYS.SS_API_KEY);
-    const apiSecret = await getStoreString(STORED_KEYS.SS_API_SECRET);
-    console.log("domain : " + domain);
-    console.log("apiKey : " + apiKey);
-    console.log("apiSecret : " + apiSecret);
-    if (domain && apiKey && apiSecret) {
+    if (await isAuthorized()) {
       console.log("*** ALREADY LOGGED IN ***");
       // TODO: Verify sendsafely auth
-      navigation.navigate('App');
+      navigation.navigate('Snap');
     }
   }
 

@@ -1,15 +1,17 @@
 import React, {useState, useEffect, useRef} from 'react';
 import {StyleSheet, Text, View, TouchableOpacity, Dimensions, SafeAreaView} from 'react-native';
 import { Camera } from 'expo-camera';
-import ImageView from "./ImageFilter";
+import * as MediaLibrary from "expo-media-library";
 // import { Video } from "expo-av";
 
 const WINDOW_HEIGHT = Dimensions.get("window").height;
 const closeButtonSize = Math.floor(WINDOW_HEIGHT * 0.032);
+const saveButtonSize = Math.floor(WINDOW_HEIGHT * 0.05);
 const captureSize = Math.floor(WINDOW_HEIGHT * 0.09);
 
 export default function CameraComponent() {
-    const [hasPermission, setHasPermission] = useState(null);
+    const [hasCameraPermission, setHasCameraPermission] = useState(null);
+    const [hasSavePermission, setHasSavePermission] = useState(null);
     const [type, setType] = useState(Camera.Constants.Type.back);
     const [cameraType, setCameraType] = useState(Camera.Constants.Type.back);
     const [isPreview, setIsPreview] = useState(false);
@@ -21,8 +23,14 @@ export default function CameraComponent() {
 
     useEffect(() => {
         (async () => {
-            const { status } = await Camera.requestCameraPermissionsAsync();
-            setHasPermission(status === 'granted');
+            const camera = await Camera.requestCameraPermissionsAsync();
+            console.log("*** Camera Permission ***");
+            console.log(camera);
+            setHasCameraPermission(camera.status === 'granted');
+            const save = await MediaLibrary.requestPermissionsAsync();
+            console.log("*** Save Permission ***");
+            console.log(save);
+            setHasSavePermission(save.status === 'granted');
         })();
     }, []);
 
@@ -36,7 +44,7 @@ export default function CameraComponent() {
             const data = await cameraRef.current.takePictureAsync(options);
             const source = data.uri;
             if (source) {
-                // await cameraRef.current.pausePreview();
+                await cameraRef.current.pausePreview();
                 setIsPreview(true);
                 setSource(source);
                 console.log("picture source", source);
@@ -91,10 +99,33 @@ export default function CameraComponent() {
     const renderCancelPreviewButton = () => (
       <TouchableOpacity onPress={cancelPreview} style={styles.closeButton}>
           <View style={[styles.closeCross, { transform: [{ rotate: "45deg" }] }]} />
-          <View
-            style={[styles.closeCross, { transform: [{ rotate: "-45deg" }] }]}
-          />
+          <View style={[styles.closeCross, { transform: [{ rotate: "-45deg" }] }]}/>
       </TouchableOpacity>
+    );
+    
+    const savePreview = async () => {
+        if (source) {
+            console.log("*** savePreview ***")
+            console.log(source)
+            const asset = await MediaLibrary.createAssetAsync(source);
+            console.log(asset)
+        }
+    }
+    
+    const renderSavePreviewButton = () => (
+        <TouchableOpacity onPress={savePreview} style={styles.saveButton}>
+            <Text>{"Save"}</Text>
+        </TouchableOpacity>
+    );
+
+    const addRecipient = async () => {
+      
+    }
+    
+    const renderAddRecipientButton = () => (
+        <TouchableOpacity onPress={addRecipient} style={styles.addRecipientButton}>
+            <Text>{"Add Recipients"}</Text>
+        </TouchableOpacity>
     );
 
     // const renderVideoPlayer = () => (
@@ -127,10 +158,10 @@ export default function CameraComponent() {
       </View>
     );
 
-    if (hasPermission === null) {
+    if (hasCameraPermission === null) {
         return <View />;
     }
-    if (hasPermission === false) {
+    if (hasCameraPermission === false) {
         return <Text>No access to camera</Text>;
     }
     return (
@@ -149,6 +180,7 @@ export default function CameraComponent() {
               {/*{isVideoRecording && renderVideoRecordIndicator()}*/}
               {/*{videoSource && renderVideoPlayer()}*/}
               {isPreview && renderCancelPreviewButton()}
+              {isPreview && hasSavePermission && renderSavePreviewButton()}
               {/*{!videoSource && !isPreview && renderCaptureControl()}*/}
               {!isPreview && renderCaptureControl()}
           </View>
@@ -170,6 +202,20 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center",
         backgroundColor: "#c4c5c4",
+        opacity: 0.7,
+        zIndex: 2,
+    },
+    saveButton: {
+        position: "absolute",
+        bottom: 35,
+        left: 15,
+        height: saveButtonSize,
+        width: saveButtonSize,
+        borderRadius: Math.floor(saveButtonSize / 2),
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "#c4c5c4",
+        color: "black",
         opacity: 0.7,
         zIndex: 2,
     },

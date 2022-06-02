@@ -4,7 +4,7 @@ import { Block, Text, theme } from "galio-framework";
 
 import Icon from "../components/Icon";
 import argonTheme from "../constants/Theme";
-import {getStoreString, removeStore, STORED_KEYS} from "../service/store";
+import {getStoreString, removeStore, removeStoredKeys, STORED_KEYS} from "../common/store";
 
 class DrawerItem extends React.Component {
   renderIcon = () => {
@@ -112,10 +112,8 @@ class DrawerItem extends React.Component {
 
   async logout(navigation) {
     console.log("*** LOGOUT ***")
-    await removeStore(STORED_KEYS.SS_DOMAIN);
-    await removeStore(STORED_KEYS.SS_API_KEY);
-    await removeStore(STORED_KEYS.SS_API_SECRET);
-    navigation.navigate('Onboarding');
+    await removeStoredKeys();
+    navigation.navigate('Account');
   }
 
   render() {

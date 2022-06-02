@@ -92,11 +92,11 @@ argon-react-native/
 │   ├── Select.js
 │   ├── Switch.js
 │   ├── Tabs.js
-│   └── index.js
+│   └── contextualizer.js
 ├── constants
 │   ├── Images.js
 │   ├── Theme.js
-│   ├── index.js
+│   ├── contextualizer.js
 │   ├── articles.js
 │   ├── tabs.js
 │   └── utils.js

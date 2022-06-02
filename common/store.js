@@ -48,3 +48,25 @@ export const removeStore = async (key) => {
     console.log(e);
   }
 }
+
+export const isAuthorized = async () => {
+  const domain = await getStoreString(STORED_KEYS.SS_DOMAIN);
+  const apiKey = await getStoreString(STORED_KEYS.SS_API_KEY);
+  const apiSecret = await getStoreString(STORED_KEYS.SS_API_SECRET);
+  console.log("domain : " + domain);
+  console.log("apiKey : " + apiKey);
+  console.log("apiSecret : " + apiSecret);
+  return domain && apiKey && apiSecret;
+}
+
+export const addStoredKeys = async (domain, apiKey, apiSecret) => {
+  await storeString(STORED_KEYS.SS_DOMAIN, domain);
+  await storeString(STORED_KEYS.SS_API_KEY, apiKey);
+  await storeString(STORED_KEYS.SS_API_SECRET, apiSecret);
+}
+
+export const removeStoredKeys = async () => {
+  await removeStore(STORED_KEYS.SS_DOMAIN);
+  await removeStore(STORED_KEYS.SS_API_KEY);
+  await removeStore(STORED_KEYS.SS_API_SECRET);
+}
