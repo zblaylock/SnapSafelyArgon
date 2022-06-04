@@ -23,6 +23,24 @@ export async function createPackage() {
   )
 }
 
+/*
+* Request Body
+* vdr: boolean
+* packageUserEmail: string
+* */
+export async function deletePackage(packageId) {
+  console.log("*** deletePackage ***");
+  const path = SS_API.PATH.DELETE_PACKAGE
+    .replace('{packageId}', packageId);
+  return call(
+    'DELETE',
+    path,
+    SS_API.HEADERS.JSON,
+    null,
+    null,
+  )
+}
+
 export async function getSentPackages(rowIndex, pageSize) {
   console.log("*** getSentPackages ***");
   return call(
@@ -30,19 +48,6 @@ export async function getSentPackages(rowIndex, pageSize) {
     SS_API.PATH.GET_PACKAGE,
     SS_API.HEADERS.JSON,
     {pageSize, rowIndex},
-    null
-  )
-}
-
-export async function deletePackage(packageId) {
-  console.log("*** deletePackage ***");
-  let path = SS_API.PATH.GET_RECEIVED_PACKAGE;
-  path = path.replace('{packageId}', packageId);
-  return call(
-    'DELETE',
-    path,
-    SS_API.HEADERS.JSON,
-    null,
     null
   )
 }
@@ -56,9 +61,8 @@ export async function deletePackage(packageId) {
 * */
 export async function createFile(packageId, fileUri, fileInfo) {
   console.log("*** createFile ***");
-  let path = SS_API.PATH.CREATE_FILE;
-  path = path.replace("{packageId}", packageId);
-  console.log(path)
+  const path = SS_API.PATH.CREATE_FILE
+    .replace("{packageId}", packageId);
   // const fileInfo = await FileSystem.getInfoAsync(fileUri);
   console.log(fileInfo);
   let index = fileInfo.uri.lastIndexOf('.');
@@ -85,8 +89,8 @@ export async function createFile(packageId, fileUri, fileInfo) {
 * */
 export async function addRecipient(email, packageId) {
   console.log("*** addRecipient ***");
-  let path = SS_API.PATH.ADD_RECIPIENT;
-  path = path.replace('{packageId}', packageId);
+  const path = SS_API.PATH.ADD_RECIPIENT
+    .replace('{packageId}', packageId);
   return call(
     'PUT',
     path,
@@ -98,17 +102,18 @@ export async function addRecipient(email, packageId) {
   )
 }
 
-export async function deleteRecipient(packageId, data) {
-  let path = SS_API.PATH.GET_PACKAGE;
-  path = path.replace('{packageId}', packageId);
+export async function deleteRecipient(packageId, recipient) {
+  let path = SS_API.PATH.DELETE_RECIPIENT
+    .replace('{packageId}', packageId)
+    .replace('{recipientId}', recipient.recipientId);
   return call(
-    'PUT',
+    'DELETE',
     path,
     SS_API.HEADERS.JSON,
     null,
-    {
-      email: data.email,
-    }
+    JSON.stringify({
+      email: recipient.email,
+    })
   )
 }
 
@@ -125,6 +130,8 @@ export async function call(
   url = SS_API.PROTOCOL + url + path;
   let timestamp = new Date().toISOString().substr(0, 19) + "+0000";
   let signature = await calculateSignature(apiKey, apiSecret, path, body, timestamp);
+  
+  console.log('method : ', method);
   console.log('url : ', url);
   console.log('apiKey : ', apiKey);
   console.log('apiSecret : ', apiSecret);

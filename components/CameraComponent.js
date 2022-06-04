@@ -15,9 +15,9 @@ import * as MediaLibrary from "expo-media-library";
 import {Block} from "galio-framework";
 import {Button, Icon, Input} from "./index";
 import {argonTheme} from "../constants";
-import {isSuccessResponse} from "../common/utils";
+import {isEmptyObject, isSuccessResponse} from "../common/utils";
 import {useFocusEffect} from "@react-navigation/native";
-import {createFile, addRecipient, createPackage, deleteRecipient} from "../service/index";
+import {createFile, addRecipient, createPackage, deleteRecipient, deletePackage} from "../service/index";
 import * as FileSystem from "expo-file-system";
 import {Video} from "expo-av";
 
@@ -45,6 +45,7 @@ export default class CameraComponent extends React.Component {
       addRecipientModalVisible: false,
       deleteRecipientModalVisible: false,
       ssPackage: null,
+      isFinalized: false,
       file: null,
       recipientEmail: null,
       recipients: [],
@@ -56,8 +57,8 @@ export default class CameraComponent extends React.Component {
   notify = (message, type) => {
     this.setState(prevState => ({notification: {...prevState.notification, message: message, type: type}}));
     setTimeout(() =>
-        this.setState(prevState => ({notification: {...prevState.notification, message: message, type: type}})),
-      2000);
+        this.setState({notification: {}}),
+      3000);
   }
 
   async componentDidMount() {
@@ -82,10 +83,16 @@ export default class CameraComponent extends React.Component {
           // Useful for cleanup functions
           // TODO: if package is not finalized/sent 
           //  -> delete the temp package
-          //  -> delete state vaiables
+          //  -> delete state variables (if needed)
         };
       }, [])
     );
+  }
+  
+  componentWillUnmount() {
+    // TODO: if package is not finalized/sent 
+    //  -> delete the temp package
+    //  -> delete state variables (if needed)
   }
 
   onCameraReady = () => {
@@ -149,6 +156,9 @@ export default class CameraComponent extends React.Component {
     await this.state.cameraRef.current.resumePreview();
     this.setState({isPreview: false});
     this.setState({videoSource: null});
+    if (this.state.ssPackage) {
+      return this.deletePackageAction(this.state.ssPackage.packageId);
+    }
   };
 
   renderCancelPreviewButton = () => (
@@ -179,7 +189,7 @@ export default class CameraComponent extends React.Component {
     console.log(file);
     if (isSuccessResponse(file)) {
       this.setState({file: file});
-      this.notify("Successfully Added File", 'success');
+      this.notify("Successfully created package and added file", 'success');
     } else {
       this.notify(file.message, 'error');
     }
@@ -192,17 +202,25 @@ export default class CameraComponent extends React.Component {
     console.log(pkg);
     if (isSuccessResponse(pkg)) {
       this.setState({ssPackage: pkg});
-      this.notify("Successfully Created Package", 'success');
+      // this.notify("Successfully Created Package", 'success');
       return this.createFileAction(pkg.packageId, this.state.source);
     } else {
       this.notify(pkg.message, 'error');
     }
   }
 
-  deletePackageAction = () => {
+  deletePackageAction = async () => {
     console.log("*** deletePackageAction ***");
     if (this.state.ssPackage) {
-
+      const res = await deletePackage(this.state.ssPackage.packageId).catch(err => console.log(err));
+      let pkg = res.data;
+      console.log(pkg);
+      if (isSuccessResponse(pkg)) {
+        this.setState({ssPackage: null});
+        this.notify("Successfully deleted package", 'success');
+      } else {
+        this.notify(pkg.message, 'error');
+      }
     }
   }
 
@@ -229,26 +247,35 @@ export default class CameraComponent extends React.Component {
   }
 
   addRecipientAction = async () => {
-    console.log("*** addRecipient ***");
-    const res = await addRecipient(this.state.recipientEmail, this.state.ssPackage.packageId).catch(err => console.log(err));
-    const recipient = res.data;
-    console.log(recipient);
-    if (isSuccessResponse(recipient)) {
-      this.setState({addRecipientModalVisible: false});
-      this.notify("Successfully Added Recipient", 'success');
+    if (this.state.recipientEmail) {
+      console.log("*** addRecipient ***");
+      const res = await addRecipient(this.state.recipientEmail, this.state.ssPackage.packageId).catch(err => console.log(err));
+      const recipient = res.data;
+      console.log(recipient);
+      if (isSuccessResponse(recipient)) {
+        this.setState({addRecipientModalVisible: false, recipientEmail: null});
+        this.state.recipients.push(recipient);
+        console.log(this.state.recipients);
+        this.notify("Successfully Added Recipient", 'success');
+      } else {
+        this.notify(recipient.message, 'error');
+      }
     } else {
-      this.notify(recipient.message, 'error');
+      this.notify("Please enter a valid email", 'error');
     }
   }
 
   deleteRecipientAction = async () => {
     console.log("*** deleteRecipient ***");
-    const res = await deleteRecipient().catch(err => console.log(err))
+    const {ssPackage, recipients } = this.state;
+    const r = recipients.pop();
+    const res = await deleteRecipient(ssPackage.packageId, r).catch(err => console.log(err))
     const recipient = res.data;
     console.log(recipient);
     if (isSuccessResponse(recipient)) {
-      this.notify("Successfully Removed Recipient", 'success');
+      this.notify(`Successfully removed recipient ${r.email}`, 'success');
     } else {
+      recipients.push(r);
       this.notify(recipient.message, 'success');
     }
   }
@@ -274,9 +301,15 @@ export default class CameraComponent extends React.Component {
 
   }
 
-  renderSendPreviewButton = () => (
-    <TouchableOpacity onPress={this.finalizePackageAction} style={styles.sendButton}>
-      <Text>{"Send"}</Text>
+  renderSendEmailButton = () => (
+    <TouchableOpacity onPress={this.finalizePackageAction} style={styles.sendEmailButton}>
+      <Text>{"Email"}</Text>
+    </TouchableOpacity>
+  );
+
+  renderSendSMSButton = () => (
+    <TouchableOpacity onPress={this.finalizePackageAction} style={styles.sendSmsButton}>
+      <Text>{"Text"}</Text>
     </TouchableOpacity>
   );
 
@@ -329,13 +362,19 @@ export default class CameraComponent extends React.Component {
                   console.log("cammera error", error)
                 }}/>
         <View style={styles.container}>
+          {!isEmptyObject(notification) && <Block center>
+            <Button disabled color={notification.type} style={styles.button}>
+              {notification.message}
+            </Button>
+          </Block>}
           {isVideoRecording && this.renderVideoRecordIndicator()}
           {videoSource && this.renderVideoPlayer()}
           {isPreview && this.renderCancelPreviewButton()}
           {(isPreview && hasSavePermission) && this.renderSavePreviewButton()}
           {(isPreview && !ssPackage) && this.renderPackageButtons()}
           {(isPreview && ssPackage) && this.renderRecipientButtons()}
-          {isPreview && this.renderSendPreviewButton()}
+          {(isPreview && recipients.length > 0) && this.renderSendSMSButton()}
+          {(isPreview && recipients.length > 0) && this.renderSendEmailButton()}
           {(!videoSource && !isPreview) && this.renderCaptureControl()}
           {!isPreview && this.renderCaptureControl()}
         </View>
@@ -453,9 +492,23 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     zIndex: 2,
   },
-  sendButton: {
+  sendSmsButton: {
     position: "absolute",
     bottom: 15,
+    right: 15,
+    height: sendButtonSize,
+    width: sendButtonSize,
+    borderRadius: Math.floor(sendButtonSize / 2),
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#c4c5c4",
+    color: "black",
+    opacity: 0.7,
+    zIndex: 2,
+  },
+  sendEmailButton: {
+    position: "absolute",
+    bottom: 70,
     right: 15,
     height: sendButtonSize,
     width: sendButtonSize,

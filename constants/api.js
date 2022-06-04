@@ -26,7 +26,7 @@ export const SS_API = {
     GET_RECEIVED_PACKAGE: '/api/v2.0/package/received/',
     DELETE_PACKAGE: '/api/v2.0/package/{packageId}',
     ADD_RECIPIENT: '/api/v2.0/package/{packageId}/recipient/',
-    DELETE_RECIPIENT: '/api/v2.0/package/{packageId}/recipient/',
+    DELETE_RECIPIENT: '/api/v2.0/package/{packageId}/recipient/{recipientId}/',
     CREATE_FILE: '/api/v2.0/package/{packageId}/file/'
   }
 }

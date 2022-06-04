@@ -26,7 +26,7 @@ const Tab = createBottomTabNavigator();
 
 function SnapStack(props) {
   return (
-    <Stack.Navigator screenOptions={{mode: "card", headerShown: false}}>
+    <Stack.Navigator screenOptions={{mode: "card", headerShown: true}}>
       <Stack.Screen name="SnapStack" component={Snap} options={{
         header: ({ navigation, scene }) => (
           <Header title="Snap" navigation={navigation} scene={scene} />),
@@ -37,7 +37,7 @@ function SnapStack(props) {
 
 function HistoryStack(props) {
   return (
-    <Stack.Navigator screenOptions={{mode: "card", headerShown: false}}>
+    <Stack.Navigator screenOptions={{mode: "card", headerShown: true}}>
       <Stack.Screen name="HistoryStack" component={History} options={{
         header: ({ navigation, scene }) => (
           <Header title="History" navigation={navigation} scene={scene} />),
@@ -48,7 +48,7 @@ function HistoryStack(props) {
 
 function SettingsStack(props) {
   return (
-    <Stack.Navigator screenOptions={{mode: "card", headerShown: false}}>
+    <Stack.Navigator screenOptions={{mode: "card", headerShown: true}}>
       <Stack.Screen name="SettingsStack" component={Settings} options={{
         header: ({ navigation, scene }) => (
           <Header title="Settings" navigation={navigation} scene={scene} />),
@@ -57,6 +57,61 @@ function SettingsStack(props) {
   );
 }
 
+function RegisterStack(props) {
+  return (
+    <Stack.Navigator screenOptions={{mode: "card", headerShown: false}}>
+      <Stack.Screen name="Account" component={Register} option={{headerTransparent: true}} />
+    </Stack.Navigator>
+  );
+}
+
+function OnboardingStack(props) {
+  return (
+      <Stack.Navigator screenOptions={{mode: "card", headerShown: false,}}>
+        <Stack.Screen name="Onboarding" component={Onboarding} />
+      </Stack.Navigator>
+    );
+}
+
+export default function AppStack(props) {
+  console.log("*** AppStack props ***");
+  console.log(props)
+  return (
+    <Drawer.Navigator 
+      style={{ flex: 1 }} 
+      drawerContent={(props) => <CustomDrawerContent {...props} />}
+      drawerStyle={{backgroundColor: "white", width: width * 0.8}}
+      backBehavior="none"
+      drawerContentOptions={{
+        activeTintcolor: "white", 
+        inactiveTintColor: "#000", 
+        activeBackgroundColor: "transparent", 
+        itemStyle: {width: width * 0.75, backgroundColor: "transparent", paddingVertical: 16, paddingHorizonal: 12, 
+          justifyContent: "center", alignContent: "center", alignItems: "center", overflow: "hidden"},
+        labelStyle: {fontSize: 18, marginLeft: 12, fontWeight: "normal"}}}
+      initialRouteName="Onboarding"
+    >
+      {/* MAIN ROUTES */}
+      <Drawer.Screen name="Snap" options={{ headerShown: false }} component={SnapStack} />
+      <Drawer.Screen name="History" options={{ headerShown: false }} component={HistoryStack} />
+      <Drawer.Screen name="Settings" options={{headerShown: false }} component={SettingsStack} />
+      {/* MAIN ROUTES */}
+      {/* MANUAL ROUTES */}
+      <Drawer.Screen options={{ swipeEnabled: false, headerShown: false }} name="Account" component={RegisterStack}/>
+      <Drawer.Screen options={{ swipeEnabled: false, headerShown: false }} name="Onboarding" component={OnboardingStack} />
+      {/* MANUAL ROUTES */}
+      {/* DEV ROUTES */}
+      <Drawer.Screen name="Home" options={{ headerShown: false }} component={HomeStack} />
+      <Drawer.Screen name="Profile" options={{ headerShown: false }} component={ProfileStack} />
+      <Drawer.Screen name="Elements" options={{ headerShown: false }} component={ElementsStack} />
+      <Drawer.Screen name="Articles" options={{ headerShown: false }} component={ArticlesStack} />
+      {/* DEV ROUTES */}
+    </Drawer.Navigator>
+  );
+}
+
+
+// DEV
 function ElementsStack(props) {
   return (
     <Stack.Navigator screenOptions={{mode: "card", headerShown: false}}>
@@ -101,60 +156,3 @@ function HomeStack(props) {
     </Stack.Navigator>
   );
 }
-
-function RegisterStack(props) {
-  return (
-    <Stack.Navigator screenOptions={{mode: "card", headerShown: false}}>
-      <Stack.Screen name="Account" component={Register} option={{headerTransparent: true}} />
-    </Stack.Navigator>
-  );
-}
-
-function OnboardingStack(props) {
-  return (
-      <Stack.Navigator screenOptions={{mode: "card", headerShown: false,}}>
-        <Stack.Screen name="Onboarding" component={Onboarding} />
-      </Stack.Navigator>
-    );
-}
-
-export default function AppStack(props) {
-  console.log("*** AppStack props ***");
-  console.log(props)
-  return (
-    <Drawer.Navigator 
-      style={{ flex: 1 }} 
-      drawerContent={(props) => <CustomDrawerContent {...props} />}
-      drawerStyle={{backgroundColor: "white", width: width * 0.8}}
-      backBehavior="none"
-      drawerContentOptions={{
-        activeTintcolor: "white", 
-        inactiveTintColor: "#000", 
-        activeBackgroundColor: "transparent", 
-        itemStyle: {width: width * 0.75, backgroundColor: "transparent", paddingVertical: 16, paddingHorizonal: 12, 
-          justifyContent: "center", alignContent: "center", alignItems: "center", overflow: "hidden"},
-        labelStyle: {fontSize: 18, marginLeft: 12, fontWeight: "normal"}}}
-      initialRouteName="Onboarding"
-    >
-      {/* MAIN ROUTES */}
-      <Drawer.Screen name="Snap" 
-                     // options={{ headerShown: false }} 
-                     component={SnapStack} />
-      <Drawer.Screen name="History" 
-                     // options={{ headerShown: false }} 
-                     component={HistoryStack} />
-      <Drawer.Screen name="Settings" options={{headerShown: false }} component={SettingsStack} />
-      {/* MAIN ROUTES */}
-      {/* MANUAL ROUTES */}
-      <Drawer.Screen options={{ swipeEnabled: false, headerShown: false }} name="Account" component={RegisterStack}/>
-      <Drawer.Screen options={{ swipeEnabled: false, headerShown: false }} name="Onboarding" component={OnboardingStack} />
-      {/* MANUAL ROUTES */}
-      {/* DEV ROUTES */}
-      <Drawer.Screen name="Home" options={{ headerShown: false }} component={HomeStack} />
-      <Drawer.Screen name="Profile" options={{ headerShown: false }} component={ProfileStack} />
-      <Drawer.Screen name="Elements" options={{ headerShown: false }} component={ElementsStack} />
-      <Drawer.Screen name="Articles" options={{ headerShown: false }} component={ArticlesStack} />
-      {/* DEV ROUTES */}
-    </Drawer.Navigator>
-  );
-} 
