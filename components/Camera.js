@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useRef} from 'react';
+import React, {useState, useEffect, useRef, useCallback} from 'react';
 import {
     StyleSheet,
     Text,
@@ -13,14 +13,18 @@ import {
 import { Camera } from 'expo-camera';
 import * as MediaLibrary from "expo-media-library";
 import {Block} from "galio-framework";
-import Pressable from "react-native/Libraries/Components/Pressable/Pressable";
 import {Button, Icon, Input} from "./index";
 import {argonTheme} from "../constants";
+import {isSuccessResponse} from "../common/utils";
+import {useFocusEffect} from "@react-navigation/native";
+import {createPackage, addFile, addRecipient} from "../service/package";
+// import { packageService} from "../service";
 // import { Video } from "expo-av";
 
 const WINDOW_HEIGHT = Dimensions.get("window").height;
 const closeButtonSize = Math.floor(WINDOW_HEIGHT * 0.032);
 const saveButtonSize = Math.floor(WINDOW_HEIGHT * 0.05);
+const actionButton = Math.floor(WINDOW_HEIGHT * 0.05);
 const addRecipientButtonSize = Math.floor(WINDOW_HEIGHT * 0.032);
 const sendButtonSize = Math.floor(WINDOW_HEIGHT * 0.05);
 const captureSize = Math.floor(WINDOW_HEIGHT * 0.09);
@@ -33,14 +37,27 @@ export default function CameraComponent() {
     const [isPreview, setIsPreview] = useState(false);
     const [isCameraReady, setIsCameraReady] = useState(false);
     const [source, setSource] = useState(null);
-    const [modalVisible, setModalVisible] = useState(false);
-    const [recipient, setRecipient] = useState(null);
+    const [addRecipientModalVisible, setAddRecipientModalVisible] = useState(false);
+    const [deleteRecipientModalVisible, setDeleteRecipientModalVisible] = useState(false);
+    const [ssPackage, setSSPackage] = useState(null);
+    const [file, setFile] = useState(null);
+    const [recipientEmail, setRecipientEmail] = useState(null);
+    const [recipients, setRecipients] = useState([]);
+    const [notification, setNotification] = useState({});
     // const [isVideoRecording, setIsVideoRecording] = useState(false);
     // const [videoSource, setVideoSource] = useState(null);
     const cameraRef = useRef();
 
+    const notify = (message, type) => {
+        setNotification(prevState => ({notification: {...prevState.notification, message: message, type: type}}));
+        setTimeout(() =>
+            setNotification(prevState => ({notification: {...prevState.notification, message: message, type: type}})),
+          2000);
+    }
+
     useEffect(() => {
         (async () => {
+            console.log("*** Mounting Camera Component ***");
             const camera = await Camera.requestCameraPermissionsAsync();
             console.log("*** Camera Permission ***");
             console.log(camera);
@@ -51,6 +68,22 @@ export default function CameraComponent() {
             setHasSavePermission(save.status === 'granted');
         })();
     }, []);
+
+    useFocusEffect(
+      useCallback(() => {
+          // Do something when the screen is focused/mount
+          console.log("*** Camera Component Focused ***");
+          
+          return () => {
+              console.log("*** Camera Component Unfocused ***");
+              // Do something when the screen is unfocused/unmount
+              // Useful for cleanup functions
+              // TODO: if package is not finalized/sent 
+              //  -> delete the temp package
+              //  -> delete state vaiables
+          };
+      }, [])
+    );
 
     const onCameraReady = () => {
         setIsCameraReady(true);
@@ -135,29 +168,128 @@ export default function CameraComponent() {
             <Text>{"Save"}</Text>
         </TouchableOpacity>
     );
+    
+    const createFileAction = (packageId, uri) => {
+        addFile(packageId, uri).then(res => {
+            let file = res.data;
+            if (isSuccessResponse(file)) {
+                console.log(file);
+                setFile(file);
+                notify("Successfully Added File", 'success');
+            } else {
+                notify(file.message, 'error');
+            }
+        }).catch(err => {
+            console.log("createFileAction Error", err);
+            notify("Error occurred while trying to add file", 'error');
+        });
+    }
+    
+    const createPackageAction = () => {
+        console.log("*** createPackageAction ***");
+        createPackage().then(res => {
+            let pkg = res.data;
+            if (isSuccessResponse(pkg)) {
+                console.log(pkg);
+                setSSPackage(pkg);
+                notify("Successfully Created Package", 'success');
+                createFileAction(pkg.packageId, source)
+            } else {
+                notify(pkg.message, 'error');
+            }
+        }).catch(err => {
+            console.log("createPackageAction Error", err);
+            notify("Error occurred while trying to create the package", 'error');
+        })
+    }
 
-    const showRecipient = async () => {
-        console.log("*** showRecipient ***");
-        setModalVisible(true);
+    const deletePackageAction = () => {
+        if (ssPackage) {
+            
+        }
     }
     
-    const addRecipient = async () => {
+    const renderPackageButtons = () => (
+        <View style={styles.control}>
+            {/*{(ssPackage && recipients.length > 0) &&*/}
+            {/*<TouchableOpacity style={styles.actionButton} disabled={!isCameraReady} onPress={deletePackageAction}>*/}
+            {/*    <Text style={styles.text}>{"Delete"}</Text>*/}
+            {/*</TouchableOpacity>}*/}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              disabled={!isCameraReady}
+              onPress={createPackageAction()}
+              style={styles.createButton}>
+                <Text style={styles.text}>{"Create"}</Text>
+            </TouchableOpacity>
+        </View>
+    )
+
+    const showAddRecipientModal = async () => {
+        console.log("*** showAddRecipient ***");
+        setAddRecipientModalVisible(true);
+    }
+
+    const showDeleteRecipientModal = async () => {
+        console.log("*** showDeleteRecipient ***");
+        setDeleteRecipientModalVisible(true);
+    }
+    
+    const addRecipientAction = async () => {
         console.log("*** addRecipient ***");
+        addRecipient(recipientEmail, ssPackage.packageId).then(res => {
+            const recipient = res.data;
+            if (isSuccessResponse(recipient)) {
+                console.log(recipient);
+                setAddRecipientModalVisible(false);
+                notify("Successfully Added Recipient", 'success');
+            } else {
+                notify(recipient.message, 'error');
+            }
+        }).catch(err => {
+            console.log("addRecipientAction Error", err);
+            notify("Please enter a valid email", 'error');
+        })
     }
     
-    const renderAddRecipientButton = () => (
-        <TouchableOpacity onPress={showRecipient} style={styles.addRecipientButton}>
-            <View style={[styles.closeCross, { transform: [{ rotate: "90deg" }] }]} />
-            <View style={[styles.closeCross]} />
-        </TouchableOpacity>
+    const deleteRecipientAction = async () => {
+        console.log("*** deleteRecipient ***");
+        deleteRecipient().then(res => {
+            const recipient = res.data; 
+            if (isSuccessResponse(recipient)) {
+                console.log(recipient);
+                notify("Successfully Removed Recipient", 'success');
+            } else {
+                notify(recipient.message, 'success');
+            }
+        }).catch(err => {
+            console.log("deleteRecipientAction Error", err);
+            notify("Error occurred while trying to delete recipient", 'error');
+        })
+    }
+    
+    const renderRecipientButtons = () => (
+      <View style={styles.control}>
+          {(ssPackage && recipients.length > 0) &&
+          <TouchableOpacity style={styles.actionButton} disabled={!isCameraReady} onPress={deleteRecipientAction}>
+              <Text style={styles.text}>{"Delete"}</Text>
+          </TouchableOpacity>}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            disabled={!isCameraReady}
+            onPress={showAddRecipientModal} 
+            style={styles.addRecipientButton}>
+              <Text style={styles.text}>{"Add"}</Text>
+          </TouchableOpacity>
+      </View>
     );
 
-    const sendPreview = async () => {
+    const finalizePackageAction = async () => {
         
     }
     
     const renderSendPreviewButton = () => (
-      <TouchableOpacity onPress={sendPreview} style={styles.sendButton}>
+      <TouchableOpacity onPress={finalizePackageAction} style={styles.sendButton}>
           <Text>{"Send"}</Text>
       </TouchableOpacity>
     );
@@ -178,7 +310,7 @@ export default function CameraComponent() {
 
     const renderCaptureControl = () => (
       <View style={styles.control}>
-          <TouchableOpacity disabled={!isCameraReady} onPress={switchCamera}>
+          <TouchableOpacity style={styles.actionButton} disabled={!isCameraReady} onPress={switchCamera}>
               <Text style={styles.text}>{"Flip"}</Text>
           </TouchableOpacity>
           <TouchableOpacity 
@@ -195,9 +327,11 @@ export default function CameraComponent() {
     if (hasCameraPermission === null) {
         return <View />;
     }
+    
     if (hasCameraPermission === false) {
         return <Text>No access to camera</Text>;
     }
+    
     return (
       <SafeAreaView style={styles.container}>
           <Camera ref={cameraRef} style={styles.container} type={cameraType} flashMode={Camera.Constants.FlashMode.on}
@@ -209,26 +343,27 @@ export default function CameraComponent() {
               {/*{videoSource && renderVideoPlayer()}*/}
               {isPreview && renderCancelPreviewButton()}
               {isPreview && hasSavePermission && renderSavePreviewButton()}
-              {isPreview && renderAddRecipientButton()}
+              {isPreview && !ssPackage && renderPackageButtons()}
+              {isPreview && ssPackage && renderRecipientButtons()}
               {isPreview && renderSendPreviewButton()}
               {/*{!videoSource && !isPreview && renderCaptureControl()}*/}
               {!isPreview && renderCaptureControl()}
           </View>
-          <Modal animationType="slide" transparent={true} visible={modalVisible}
-            onRequestClose={() => {Alert.alert("Modal has been closed."); setModalVisible(!modalVisible);}}>
+          <Modal animationType="slide" transparent={true} visible={addRecipientModalVisible}
+            onRequestClose={() => {Alert.alert("Modal has been closed."); setAddRecipientModalVisible(!addRecipientModalVisible);}}>
               <View style={styles.modalCenteredView}>
                   <View style={styles.modalView}>
-                      <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeModalButton}>
+                      <TouchableOpacity onPress={() => setAddRecipientModalVisible(false)} style={styles.closeModalButton}>
                           <View style={[styles.closeCross, { transform: [{ rotate: "45deg" }] }]} />
                           <View style={[styles.closeCross, { transform: [{ rotate: "-45deg" }] }]} />
                       </TouchableOpacity>
                       <Text style={styles.modalText}>Add Recipient</Text>
                       <Block center>
                           <Block middle style={{marginLeft: 15, marginRight: 15}}>
-                              <Input placeholder="Recipient" onChangeText={(val) => this.setState({recipient: val})} value={recipient}/>
+                              <Input placeholder="Email" onChangeText={(val) => setRecipientEmail(val)} value={recipientEmail}/>
                           </Block>
                           <Block middle>
-                              <Button color="primary" onPress={addRecipient} style={styles.createButton}>
+                              <Button color="primary" onPress={addRecipientAction} style={styles.createButton}>
                                   <Text bold size={14} color={argonTheme.COLORS.WHITE}>
                                       ADD
                                   </Text>
@@ -287,13 +422,34 @@ const styles = StyleSheet.create({
         opacity: 0.7,
         zIndex: 2,
     },
-    addRecipientButton: {
+    createButton: {
+        // borderRadius: 5,
+        height: captureSize,
+        width: captureSize,
+        borderRadius: Math.floor(captureSize / 2),
+        marginHorizontal: 31,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "#c4c5c4",
+        color: "black",
+        opacity: 0.7,
+        zIndex: 2,
+    },
+    deleteButton: {
         position: "absolute",
-        top: 15,
-        right: 15,
-        height: addRecipientButtonSize,
-        width: addRecipientButtonSize,
-        borderRadius: Math.floor(addRecipientButtonSize / 2),
+        flexDirection: "row",
+        bottom: 38,
+        width: "100%",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#c4c5c4",
+        borderRadius: Math.floor(captureSize / 2),
+    },
+    addRecipientButton: {
+        height: captureSize,
+        width: captureSize,
+        borderRadius: Math.floor(captureSize / 2),
+        marginHorizontal: 31,
         justifyContent: "center",
         alignItems: "center",
         backgroundColor: "#c4c5c4",
@@ -322,6 +478,14 @@ const styles = StyleSheet.create({
         width: "68%",
         height: 1,
         backgroundColor: "black",
+    },
+    actionButton: {
+        backgroundColor: "#c4c5c4",
+        borderRadius: Math.floor(actionButton / 2),
+        height: actionButton,
+        width: actionButton,
+        justifyContent: "center",
+        alignItems: "center",
     },
     control: {
         position: "absolute",
@@ -362,7 +526,7 @@ const styles = StyleSheet.create({
         marginHorizontal: 5,
     },
     text: {
-        color: "#fff",
+        color: "black",
     },
     modalCenteredView: {
         position: 'relative',

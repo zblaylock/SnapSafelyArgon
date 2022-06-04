@@ -32,6 +32,9 @@
     "expo-font": "~10.0.3",
     "expo-gl": "~11.0.3",
     "expo-linear-gradient": "~10.0.3",
+    "expo-media-library": "~13.0.3",
+    "expo-secure-store": "~11.0.3",
+    "expo-sms": "~10.0.3",
     "galio-framework": "^0.8.0",
     "gl-react": "^5.2.0",
     "gl-react-expo": "^5.2.1",
@@ -45,9 +48,7 @@
     "react-native-safe-area-context": "3.3.2",
     "react-native-screens": "^3.8.0",
     "react-native-svg": "12.1.1",
-    "expo-sms": "~10.0.3",
-    "expo-secure-store": "~11.0.3",
-    "expo-media-library": "~13.0.3"
+    "expo-file-system": "~13.0.3"
   },
   "devDependencies": {
     "babel-preset-expo": "8.3.0",

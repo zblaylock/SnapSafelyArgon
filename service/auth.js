@@ -3,6 +3,9 @@ import axios from "axios";
 
 export const authenticate = (domain, email, password) => {
     let url = `https://${domain}${SS_API.PATH.GENERATE_KEY}`;
+    if (SS_API.DEBUG.MODE) {
+        url = `${SS_API.DEBUG.LOCAL_NGROK}${SS_API.PATH.GENERATE_KEY}`;
+    }
     console.log(url);
     console.log(email);
     console.log(password);

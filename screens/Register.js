@@ -26,7 +26,7 @@ class Register extends React.Component {
       password: null,
       apiKey: null,
       apiSecret: null,
-      notification: null
+      notification: {}
     }
   }
   
@@ -36,6 +36,8 @@ class Register extends React.Component {
     console.log(this.props);
     if (await isAuthorized()) {
       navigation.navigate('Snap');
+    } else {
+      this.setState(prevState => ({notification: null}));
     }
   }
   
@@ -47,28 +49,36 @@ class Register extends React.Component {
     await Linking.openURL(SS_API.DEFAULT_WEB_DOMAIN);
   }
 
-  async saveConfig(navigation) {
-    if (this.state.domain, this.state.email, this.state.password) {
-      authenticate(this.state.domain, this.state.email, this.state.password).then(auth => {
-        console.log(auth.data);
-        if (isSuccessResponse(auth.data)) {
-          this.setState(prevState => ({notification:
-              {...prevState.notification, message: "Success!", type: 'success'}}))
-          console.log("*** Authenticate Response ***");
-          addStoredKeys(this.state.domain, auth.data.apiKey, auth.data.apiSecret)
-          setTimeout(() => navigation.navigate('Snap'), 2000);
-        } else {
-          this.setState(prevState => ({notification: 
-              {...prevState.notification, message: auth.data.message, type: 'error'}}))
-        }
-      }).catch(err => {
-        console.log(err);
-        this.setState(prevState => ({notification: 
-            {...prevState.notification, message: "Please enter valid domain", type: 'error'}}));
-      })
+  async login(navigation) {
+    if (SS_API.DEBUG.MODE) {
+      await addStoredKeys(SS_API.DEBUG.LOCAL_NGROK, SS_API.DEBUG.API_KEY, SS_API.DEBUG.API_SECRET, SS_API.DEBUG.EMAIL);
+      navigation.navigate('Snap');
     } else {
-      this.setState(prevState => ({notification: 
-          {...prevState.notification, message: "Please enter valid credentials", type: 'error'}}));
+      if (this.state.domain, this.state.email, this.state.password) {
+        authenticate(this.state.domain, this.state.email, this.state.password).then(auth => {
+          console.log(auth.data);
+          if (isSuccessResponse(auth.data)) {
+            this.setState(prevState => ({notification:
+                {...prevState.notification, message: "Success!", type: 'success'}}))
+            console.log("*** Authenticate Response ***");
+            addStoredKeys(this.state.domain, auth.data.apiKey, auth.data.apiSecret, this.state.email);
+            setTimeout(() => navigation.navigate('Snap'), 2000);
+          } if (auth.data.response === 'TWO_FA_REQUIRED'){
+            this.setState(prevState => ({notification:
+                {...prevState.notification, message: "You must disable two fa authentication", type: 'error'}}))
+          } else {
+            this.setState(prevState => ({notification:
+                {...prevState.notification, message: auth.data.message, type: 'error'}}))
+          }
+        }).catch(err => {
+          console.log(err);
+          this.setState(prevState => ({notification:
+              {...prevState.notification, message: "Please enter a valid domain", type: 'error'}}));
+        })
+      } else {
+        this.setState(prevState => ({notification:
+            {...prevState.notification, message: "Please enter a valid credentials", type: 'error'}}));
+      }
     }
   }
 
@@ -127,7 +137,7 @@ class Register extends React.Component {
                              iconContent={<Icon size={16} color={argonTheme.COLORS.ICON} name="padlock-unlocked" family="ArgonExtra" style={styles.inputIcons}/>}/>
                     </Block>
                     <Block middle>
-                      <Button color="primary" onPress={() => this.saveConfig(navigation)} style={styles.createButton}>
+                      <Button color="primary" onPress={() => this.login(navigation)} style={styles.createButton}>
                         <Text bold size={14} color={argonTheme.COLORS.WHITE}>
                           Login
                         </Text>

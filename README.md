@@ -59,13 +59,18 @@ Let us know your thoughts below. And good luck with development!
 [View more](https://demos.creative-tim.com/argon-react-native)
 
 ## Quick start
-- Install Node Version 13.8.0
-- Install expo-cli latest
+- Install Node Version v13.8.0
+- Install expo-cli v3.11.9
 - Clone project and run npm install
 - See package.json for run scripts
-
-- Issues running project for the first time
-  - try clearing node_modules, package-lock.json, and running "expo r -c"
+- Issues running project for the first time or node_module dependency issues
+  - try deleting node_modules, package-lock.json, and running cleaning cache
+  - ```
+    rm -rf node_modules
+    rm package-lock.json
+    npm cache clean --force
+    expo r -c
+    ```
 
 ## Documentation
 The documentation for the Argon React Native is hosted at our.

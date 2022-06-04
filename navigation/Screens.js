@@ -59,7 +59,7 @@ function SettingsStack(props) {
 
 function ElementsStack(props) {
   return (
-    <Stack.Navigator screenOptions={{mode: "card", headerShown: false,}}>
+    <Stack.Navigator screenOptions={{mode: "card", headerShown: false}}>
       <Stack.Screen name="ElementsStack" component={Elements} options={{
         header: ({ navigation, scene }) => (
           <Header title="Elements" navigation={navigation} scene={scene} />),
@@ -137,19 +137,23 @@ export default function AppStack(props) {
       initialRouteName="Onboarding"
     >
       {/* MAIN ROUTES */}
-      <Drawer.Screen name="Snap" component={SnapStack} />
-      <Drawer.Screen name="History" component={HistoryStack} />
-      <Drawer.Screen name="Settings" component={SettingsStack} />
+      <Drawer.Screen name="Snap" 
+                     // options={{ headerShown: false }} 
+                     component={SnapStack} />
+      <Drawer.Screen name="History" 
+                     // options={{ headerShown: false }} 
+                     component={HistoryStack} />
+      <Drawer.Screen name="Settings" options={{headerShown: false }} component={SettingsStack} />
       {/* MAIN ROUTES */}
       {/* MANUAL ROUTES */}
       <Drawer.Screen options={{ swipeEnabled: false, headerShown: false }} name="Account" component={RegisterStack}/>
       <Drawer.Screen options={{ swipeEnabled: false, headerShown: false }} name="Onboarding" component={OnboardingStack} />
       {/* MANUAL ROUTES */}
       {/* DEV ROUTES */}
-      <Drawer.Screen name="Home" component={HomeStack} />
-      <Drawer.Screen name="Profile" component={ProfileStack} />
-      <Drawer.Screen name="Elements" component={ElementsStack} />
-      <Drawer.Screen name="Articles" component={ArticlesStack} />
+      <Drawer.Screen name="Home" options={{ headerShown: false }} component={HomeStack} />
+      <Drawer.Screen name="Profile" options={{ headerShown: false }} component={ProfileStack} />
+      <Drawer.Screen name="Elements" options={{ headerShown: false }} component={ElementsStack} />
+      <Drawer.Screen name="Articles" options={{ headerShown: false }} component={ArticlesStack} />
       {/* DEV ROUTES */}
     </Drawer.Navigator>
   );
