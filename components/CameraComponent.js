@@ -11,15 +11,27 @@ import {
   KeyboardAvoidingView
 } from 'react-native';
 import {Camera} from 'expo-camera';
+import * as SMS from 'expo-sms';
+import * as MailComposer from 'expo-mail-composer';
 import * as MediaLibrary from "expo-media-library";
 import {Block} from "galio-framework";
 import {Button, Icon, Input} from "./index";
 import {argonTheme} from "../constants";
-import {isEmptyObject, isSuccessResponse} from "../common/utils";
+import {_slice, createKeycode, isEmptyObject, isSuccessResponse, urlSafeBase64} from "../common/utils";
 import {useFocusEffect} from "@react-navigation/native";
-import {createFile, addRecipient, createPackage, deleteRecipient, deletePackage} from "../service/index";
+import {
+  createFile,
+  addRecipient,
+  createPackage,
+  deleteRecipient,
+  deletePackage,
+  uploadUrls,
+  finalizePackage, addMessage
+} from "../service/index";
 import * as FileSystem from "expo-file-system";
 import {Video} from "expo-av";
+import {encryptAndUploadFiles} from "../service/ssEncyptUpload";
+import sjcl from "../common/external/sjcl";
 
 const WINDOW_HEIGHT = Dimensions.get("window").height;
 const closeButtonSize = Math.floor(WINDOW_HEIGHT * 0.032);
@@ -28,31 +40,52 @@ const actionButton = Math.floor(WINDOW_HEIGHT * 0.05);
 const addRecipientButtonSize = Math.floor(WINDOW_HEIGHT * 0.032);
 const sendButtonSize = Math.floor(WINDOW_HEIGHT * 0.05);
 const captureSize = Math.floor(WINDOW_HEIGHT * 0.09);
+const SEGMENT_SIZE = 2621440;
+const MAX_CONCURRENT_ENCRYPTIONS = 2;
+const SERVER_WORKER_URI = '../common/external/sjcl';
+
+const initialState = {
+  hasCameraPermission: null,
+  hasSavePermission: null,
+  cameraType: Camera.Constants.Type.back,
+  isPreview: false,
+  isCameraReady: false,
+  isVideoRecording: false,
+  source: null,
+  videoSource: null,
+  fileInfo: null,
+  addRecipientModalVisible: false,
+  addMessageModalVisible: false,
+  deleteRecipientModalVisible: false,
+  ssPackage: null,
+  isFinalized: false,
+  ssFile: null,
+  recipientEmail: null,
+  message: null,
+  recipients: [],
+  notification: {},
+  // Upload
+  progressTracker: {},
+  encrypting: [],
+  segmentsCurrentlyEncrypting: 0,
+  workerPool: [],
+  entropyState: null,
+  entropyPercent: 0,
+  keyCode: null
+};
 
 export default class CameraComponent extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      hasCameraPermission: null,
-      hasSavePermission: null,
-      cameraType: Camera.Constants.Type.back,
-      isPreview: false,
-      isCameraReady: false,
-      isVideoRecording: false,
-      source: null,
-      videoSource: null,
-      fileInfo: null,
-      addRecipientModalVisible: false,
-      deleteRecipientModalVisible: false,
-      ssPackage: null,
-      isFinalized: false,
-      file: null,
-      recipientEmail: null,
-      recipients: [],
-      notification: {},
-      cameraRef: React.createRef()
+      ...initialState,
+      cameraRef: React.createRef(),
     }
   }
+
+  clearState = () => {
+    this.setState(prevState => ({ ...initialState, cameraRef: this.state.cameraRef}));
+  };
 
   notify = (message, type) => {
     this.setState(prevState => ({notification: {...prevState.notification, message: message, type: type}}));
@@ -74,25 +107,35 @@ export default class CameraComponent extends React.Component {
 
     useFocusEffect(
       useCallback(() => {
-        // Do something when the screen is focused/mount
         console.log("*** Camera Component Focused ***");
-
         return () => {
           console.log("*** Camera Component Unfocused ***");
-          // Do something when the screen is unfocused/unmount
-          // Useful for cleanup functions
-          // TODO: if package is not finalized/sent 
-          //  -> delete the temp package
-          //  -> delete state variables (if needed)
+          if (this.state.ssPackage && !this.state.isFinalized) {
+            console.log("Deleting temp package");
+            this.deleteRecipientAction(this.state.ssPackage.packageId);
+          }
+          this.clearState();
         };
       }, [])
     );
   }
   
   componentWillUnmount() {
-    // TODO: if package is not finalized/sent 
-    //  -> delete the temp package
-    //  -> delete state variables (if needed)
+    console.log("*** componentWillUnmount  ***")
+    if (this.state.ssPackage && !this.state.isFinalized) {
+      console.log("Deleting temp package");
+      this.deleteRecipientAction(this.state.ssPackage.packageId);
+    }
+    this.clearState();
+  }
+
+  getKeyCodeAction = () => {
+    console.log("*** getKeyCodeAction ***");
+    createKeycode((keyCode) => {
+      console.log("*** createKeycode ***");
+      console.log(keyCode);
+      this.setState({keyCode: keyCode});
+    })
   }
 
   onCameraReady = () => {
@@ -156,9 +199,10 @@ export default class CameraComponent extends React.Component {
     await this.state.cameraRef.current.resumePreview();
     this.setState({isPreview: false});
     this.setState({videoSource: null});
-    if (this.state.ssPackage) {
+    if (this.state.ssPackage && !this.state.isFinalized) {
       return this.deletePackageAction(this.state.ssPackage.packageId);
     }
+    this.clearState();
   };
 
   renderCancelPreviewButton = () => (
@@ -188,21 +232,252 @@ export default class CameraComponent extends React.Component {
     let file = res.data;
     console.log(file);
     if (isSuccessResponse(file)) {
-      this.setState({file: file});
-      this.notify("Successfully created package and added file", 'success');
+      // this.uploadEncryptedFileAction(file);
+      this.setState({ssFile: file});
+      // this.notify("Successfully created package and added file", 'success');
     } else {
+      console.log(file.response);
+      console.log(file.message);
       this.notify(file.message, 'error');
     }
   }
+  
+  /*** Upload S3 methods ***/
+  uploadEncryptedFileAction = (file) => {
+    this.state.progressTracker[file.message] = {};
+    this.state.progressTracker[file.message].totalSize = file.size;
+    this.state.progressTracker[file.message].parts = {};
+    file.part = 0;
+    file.id = file.message;
+    if(file.url === undefined ) {
+      //Add to encrypting Queue
+      let filename = (file.name === undefined) ? "SnapSafely" : file.name;
+      this.state.encrypting.push({
+        "packageId": packageId,
+        "file": file,
+        "parts": 1,
+        "part": 1,
+        "name": filename,
+        "fileStart": 0,
+        "id": file.message
+      })
+      if (this.state.encrypting.length === 1) {
+        this.uploadPart();
+      }
+    } else {
+      this.loadBlobFromUrl(packageId, file, 1, () => {
+        this.uploadPart();
+      });
+    }
+  }
+
+  uploadPart = (finished) => {
+    console.log("*** uploadPart ***");
+    if(this.state.encrypting.length >= 1){
+      let currentFile = this.state.encrypting[0];
+      while(this.state.segmentsCurrentlyEncrypting < MAX_CONCURRENT_ENCRYPTIONS) {
+        const fileObj = {};
+        if(currentFile.part === 1){
+          fileObj.fileSegment = _slice(currentFile.file, 0, Math.min((this.state.SEGMENT_SIZE/4), currentFile.file.size));;
+          fileObj.id = currentFile.id;
+          fileObj.part = currentFile.part;
+          fileObj.parts = currentFile.parts;
+          fileObj.name = currentFile.name;
+          this.state.encrypting[0].fileStart = Math.min(this.state.SEGMENT_SIZE/4, this.state.encrypting[0].file.size);
+        } else if(currentFile.part <= currentFile.parts){
+          fileObj.fileSegment = _slice(currentFile.file, currentFile.fileStart, Math.min(currentFile.fileStart+(this.state.SEGMENT_SIZE), currentFile.file.size));;
+          fileObj.id = currentFile.id;
+          fileObj.part = currentFile.part;
+          fileObj.parts = currentFile.parts;
+          fileObj.name = currentFile.name;
+          this.state.encrypting[0].fileStart = Math.min(this.state.encrypting[0].fileStart+(this.state.SEGMENT_SIZE), this.state.encrypting[0].file.size);
+        } else{
+          //Finished last
+          this.state.encrypting.shift();
+          return this.uploadPart();
+        }
+        this.state.encrypting[0].part++;
+        this.setState({segmentsCurrentlyEncrypting: this.state.segmentsCurrentlyEncrypting+=1})
+        let packageId = currentFile.packageId;
+        this.sendFileToWorker(fileObj, packageId, currentFile.file.size, 
+          (event) => {
+          console.log(event);
+          this.uploadPart();
+          }, (event) => {
+            console.log(event);
+          }, (event) => {
+            console.log(event);
+          });
+      }
+    }
+  };
+
+  loadBlobFromUrl = (packageId, file, parts, uploadCb) => {
+    const xhr = new XMLHttpRequest();
+    let url = file.url;
+    xhr.open('GET', url, true);
+    xhr.responseType = 'arraybuffer';
+    xhr.onload = function(e) {
+      if (this.status === 200) {
+        // Convert to ArrayBufferView
+        let formattedResponse = new Uint8Array(this.response);
+        let blob = new Blob([formattedResponse], {type: 'application/octet-stream'});
+        blob.part = file.part;
+        blob.id = file.id;
+        blob.name = file.name;
+        let filename = (file.name === undefined) ? "Unknown File" : file.name;
+        //Add to encrypting Queue
+        this.state.encrypting.push({"packageId": packageId, "file":blob, "name": filename, "parts": parts, "part": 1, "fileStart": 0, "id": blob.id});
+        if(this.state.encrypting.length === 1){
+          //Start Uploading files
+          uploadCb();
+        }
+      } else {
+        this.state.eventHandler.raiseError('BLOB_ERROR', 'Failed to load blob');
+      }
+    };
+    xhr.send();
+  };
+
+  sendFileToWorker = (fileObject, packageId, fileSize, nextCb, statusCb, finished) => {
+    var key = this.state.ssPackage;
+    function postStartMessage(worker) {
+      var randomness = sjcl.codec.utf8String.fromBits(sjcl.random.randomWords(16,6));
+      worker.worker.postMessage({'cmd': 'start',
+        'serverSecret': urlSafeBase64(key.serverSecret),
+        'packageId': packageId,
+        'fileId': fileObject.id,
+        'keycode': urlSafeBase64(key.keyCode),
+        'iv': randomness,
+        'file': fileObject.fileSegment,
+        'fileSize': fileObject.size,
+        'name': fileObject.name,
+        'totalFileSize': fileSize,
+        'filePart': fileObject.part,
+        'parts': fileObject.parts,
+        'SEGMENT_SIZE': SEGMENT_SIZE,
+        'id': worker.id,
+        'boundary': '------JSAPIFormDataBoundary' + Math.random().toString(36)
+      });
+    }
+
+    function sendWorkerFile(worker, progressCb) {
+      if(sjcl.random.isReady(6) === 0) {
+        sjcl.random.addEventListener("seeded", function () {
+          postStartMessage(worker);
+        });
+        sjcl.random.addEventListener("progress", function(evt) {
+          progressCb(evt)
+        });
+      } else {
+        postStartMessage(worker);
+      }
+    }
+
+    function moveToNextWhenReady(uploading) {
+      if (uploading.length > 5) {
+        window.setTimeout(function() {moveToNextWhenReady()}, 3000);
+      } else {
+        nextCb();
+      }
+    }
+
+    const worker = this.getWorker(statusCb, 
+      (state, data) => {
+      switch (state) {
+        case 'FILE_UPLOADING':
+          this.setState({segmentsCurrentlyEncrypting: this.state.segmentsCurrentlyEncrypting-=1})
+          this.markWorkerAsAvailable(data.id);
+          moveToNextWhenReady(this.state.uploading);
+          let messageData = {};
+          messageData["fileId"] = data.fileId;
+          messageData["uploadType"] = "JS_API";
+          messageData["filePart"] = data.part;
+          // Check if the part is marked for deletion before actually pushing it.
+          if(this.state.markedAsDeleted[data.fileId] !== undefined) {
+            // Marked as deleted, do nothing
+          } else {
+            this.state.uploading.push({"packageId": data.packageId, "boundary": data.boundary, "name": data.name, "messageData": messageData, "file":data, "in_progressCb": function(jqXHR) {
+              statusCb({data, jqXHR}); // console.log({progress: { id: data.fileId, percent: calculateProgress(data.fileId, data.part, jqXHR.loaded)}});
+              }});
+          }
+          break;
+        default:
+          console.log(state);
+          console.log(data);
+      }
+      });
+    sendWorkerFile(worker, (evt) => {
+      let entropyPercent = 0;
+      if(evt !== undefined && evt !== 1 && !isNaN(evt)) {
+        entropyPercent = (evt*100);
+        this.setState({entropyState: "PROGRESS", entropyPercent})
+      } else {
+        this.setState({entropyState: "READY", entropyPercent: 0})
+      }
+    });
+  };
+
+  calculateProgress = (fileId, currentPart, uploadedBytes) => {
+    let partArray = this.state.progressTracker[fileId].parts;
+    partArray[currentPart] = uploadedBytes;
+    let totalSize = this.state.progressTracker[fileId].totalSize;
+    let uploadedSoFar = 0;
+    for (let part in partArray) {
+      uploadedSoFar += partArray[part];
+    }
+    return Math.min(100, (uploadedSoFar/totalSize) * 100);
+  }
+
+  markWorkerAsAvailable = (id) => {
+    for(let i = 0; i<this.state.workerPool.length; i++) {
+      if(this.state.workerPool[i].id === id) {
+        this.state.workerPool[i].available = true;
+        return;
+      }
+    }
+  };
+
+  getWorker = (nextCb, stateUpdate) => {
+    for (let i = 0; i < this.state.workerPool.length; i++) {
+      if (this.state.workerPool[i].available) {
+        this.state.workerPool[i].available = false;
+        return this.state.workerPool[i];
+      }
+    }
+    
+    let worker = new Worker(SERVER_WORKER_URI);
+    this.state.workerPool.push({'available': false, 'id': this.state.workerPool.length, 'worker': worker});
+    worker.addEventListener('message', function(e) {
+      const data = e.data;
+      switch (data.cmd) {
+        case 'state':
+          console.log(data.state, {id: data.fileId, part:data.part, size: data.filesize});
+          break;
+        case 'fatal':
+          console.log({error: data.msg, message: data.debug});
+          break;
+        case 'randBuff':
+          worker.postMessage({'cmd': 'randBuff', 'iv': sjcl.codec.utf8String.fromBits(sjcl.random.randomWords(64,6))});
+          break;
+        case 'upload':
+          stateUpdate("FILE_UPLOADING", {id: data.fileId, part:data.part});
+          break;
+      }
+    }, false);
+    return this.state.workerPool[this.state.workerPool.length-1];
+  }
+  /*** Upload S3 methods ***/
 
   createPackageAction = async () => {
     console.log("*** createPackageAction ***");
     const res = await createPackage().catch(err => console.log(err));
+    console.log(res)
     let pkg = res.data;
     console.log(pkg);
     if (isSuccessResponse(pkg)) {
       this.setState({ssPackage: pkg});
-      // this.notify("Successfully Created Package", 'success');
+      this.notify("Successfully Created Package", 'success');
       return this.createFileAction(pkg.packageId, this.state.source);
     } else {
       this.notify(pkg.message, 'error');
@@ -241,11 +516,6 @@ export default class CameraComponent extends React.Component {
     this.setState({addRecipientModalVisible: true});
   }
 
-  showDeleteRecipientModal = () => {
-    console.log("*** showDeleteRecipient ***");
-    this.setState({deleteRecipientModalVisible: true});
-  }
-
   addRecipientAction = async () => {
     if (this.state.recipientEmail) {
       console.log("*** addRecipient ***");
@@ -253,13 +523,13 @@ export default class CameraComponent extends React.Component {
       const recipient = res.data;
       console.log(recipient);
       if (isSuccessResponse(recipient)) {
-        this.setState({addRecipientModalVisible: false, recipientEmail: null});
         this.state.recipients.push(recipient);
         console.log(this.state.recipients);
         this.notify("Successfully Added Recipient", 'success');
       } else {
         this.notify(recipient.message, 'error');
       }
+      this.setState({addRecipientModalVisible: false, recipientEmail: null});
     } else {
       this.notify("Please enter a valid email", 'error');
     }
@@ -279,6 +549,37 @@ export default class CameraComponent extends React.Component {
       this.notify(recipient.message, 'success');
     }
   }
+  
+  addMessageAction = async () => {
+    if (this.state.message) {
+      console.log("*** addMessageAction ***");
+      const res = await addMessage(this.state.ssPackage.packageId, this.state.message).catch(err => console.log(err));
+      const message = res.data;
+      console.log(message);
+      if (isSuccessResponse(message)) {
+        this.setState({message: message});
+        console.log(this.state.message);
+        this.notify("Successfully Added Message", 'success');
+      } else {
+        this.notify(message.message, 'error');
+      }
+      this.setState({addMessageModalVisible: false, message: null});
+    } else {
+      this.notify("Please enter a message", 'error');
+    }
+  }
+
+  showAddMessageModal = () => {
+    console.log("*** showAddMessageModal ***");
+    this.setState({addMessageModalVisible: true});
+  }
+  
+  renderMessageButton = () => (
+    <TouchableOpacity onPress={this.showAddMessageModal} style={styles.addMessageButton}>
+      <Text>{"T"}</Text>
+    </TouchableOpacity>
+  )
+  
 
   renderRecipientButtons = () => (
     <View style={styles.control}>
@@ -298,17 +599,76 @@ export default class CameraComponent extends React.Component {
   );
 
   finalizePackageAction = async () => {
+    console.log("*** finalizePackageSend ***");
+    const {ssPackage, keyCode} = this.state;
+    console.log(ssPackage);
+    const res = await finalizePackage(ssPackage, keyCode).catch(err => console.log(err));
+    const finalize = res.data;
+    console.log(finalize);
+    if (isSuccessResponse(finalize)) {
+      this.notify(`Encryption applied`, 'success');
+      this.setState({isFinalized: true});
+      return finalize;
+    } else {
+      this.parent.notify(finalize.message, 'success');
+      return finalize;
+    }
+  }
+  
+  handlerSmsSend = async () => {
+    if (await SMS.isAvailableAsync()) {
+      console.log("*** SMS Available ***");
+      let finalize;
+      if (!this.state.isFinalized) {
+        finalize = await this.finalizePackageAction();
+        this.setState({finalize: finalize});
+        console.log(finalize);
+      } else {
+        finalize = this.state.finalize;
+      }
+      const { result } = await SMS.sendSMSAsync(
+        [],
+        `SnapSafely Package! ${finalize.message}#keyCode=${this.state.keyCode}`
+      );
+      console.log(result);
+    } else {
+      console.log("*** SMS Not Available ***");
+    }
+  }
 
+  handlerEmailSend = async () => {
+    if (await MailComposer.isAvailableAsync()) {
+      console.log("*** Email Available ***");
+      let finalize;
+      if (!this.state.isFinalized) {
+        finalize = await this.finalizePackageAction();
+        this.setState({finalize: finalize});
+        console.log(finalize);
+      } else {
+        finalize = this.state.finalize;
+      }
+      let recipientArr = this.state.recipients.map(i => i.email);
+      const { result } = await MailComposer.composeAsync(
+        {
+          subject: "SnapSafely Package!",
+          recipients: recipientArr,
+          body: `${finalize.message}#keyCode=${this.state.keyCode}`
+        }
+      );
+      console.log(result);
+    } else {
+      console.log("*** Email Not Available ***");
+    }
   }
 
   renderSendEmailButton = () => (
-    <TouchableOpacity onPress={this.finalizePackageAction} style={styles.sendEmailButton}>
+    <TouchableOpacity onPress={this.handlerEmailSend} style={styles.sendEmailButton}>
       <Text>{"Email"}</Text>
     </TouchableOpacity>
   );
 
   renderSendSMSButton = () => (
-    <TouchableOpacity onPress={this.finalizePackageAction} style={styles.sendSmsButton}>
+    <TouchableOpacity onPress={this.handlerSmsSend} style={styles.sendSmsButton}>
       <Text>{"Text"}</Text>
     </TouchableOpacity>
   );
@@ -341,9 +701,9 @@ export default class CameraComponent extends React.Component {
 
   render() {
     const {
-      hasCameraPermission, hasSavePermission, cameraType, addRecipientModalVisible,
+      hasCameraPermission, hasSavePermission, cameraType, addRecipientModalVisible, addMessageModalVisible, message,
       deleteRecipientModalVisible, isCameraReady, recipientEmail, source, cameraRef,
-      file, isPreview, notification, recipients, ssPackage, isVideoRecording, videoSource
+      ssFile, isPreview, notification, recipients, ssPackage, isVideoRecording, videoSource
     } = this.state;
 
     if (hasCameraPermission === null) {
@@ -373,6 +733,7 @@ export default class CameraComponent extends React.Component {
           {(isPreview && hasSavePermission) && this.renderSavePreviewButton()}
           {(isPreview && !ssPackage) && this.renderPackageButtons()}
           {(isPreview && ssPackage) && this.renderRecipientButtons()}
+          {(isPreview && ssPackage) && this.renderMessageButton()}
           {(isPreview && recipients.length > 0) && this.renderSendSMSButton()}
           {(isPreview && recipients.length > 0) && this.renderSendEmailButton()}
           {(!videoSource && !isPreview) && this.renderCaptureControl()}
@@ -407,6 +768,35 @@ export default class CameraComponent extends React.Component {
             </View>
           </View>
         </Modal>
+        <Modal animationType="slide" transparent={true} visible={addMessageModalVisible}
+               onRequestClose={() => {
+                 Alert.alert("Modal has been closed.");
+                 this.setState({addMessageModalVisible: !addMessageModalVisible});
+               }}>
+          <View style={styles.modalCenteredView}>
+            <View style={styles.modalView}>
+              <TouchableOpacity onPress={() => this.setState({addMessageModalVisible: false})}
+                                style={styles.closeModalButton}>
+                <View style={[styles.closeCross, {transform: [{rotate: "45deg"}]}]}/>
+                <View style={[styles.closeCross, {transform: [{rotate: "-45deg"}]}]}/>
+              </TouchableOpacity>
+              <Text style={styles.modalText}>Add Message</Text>
+              <Block center>
+                <Block middle style={{marginLeft: 15, marginRight: 15}}>
+                  <Input placeholder="Email" onChangeText={(val) => this.setState({message: val})}
+                         value={message}/>
+                </Block>
+                <Block middle>
+                  <Button color="primary" onPress={this.addMessageAction} style={styles.createButton}>
+                    <Text bold size={14} color={argonTheme.COLORS.WHITE}>
+                      ADD
+                    </Text>
+                  </Button>
+                </Block>
+              </Block>
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     );
   }
@@ -420,6 +810,19 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 15,
     left: 15,
+    height: closeButtonSize,
+    width: closeButtonSize,
+    borderRadius: Math.floor(closeButtonSize / 2),
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#c4c5c4",
+    opacity: 0.7,
+    zIndex: 2,
+  },
+  addMessageButton: {
+    position: "absolute",
+    top: 15,
+    right: 15,
     height: closeButtonSize,
     width: closeButtonSize,
     borderRadius: Math.floor(closeButtonSize / 2),

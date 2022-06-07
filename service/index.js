@@ -1,7 +1,8 @@
 import axios from "axios";
 import {SS_API} from "../constants/api";
 import {getStoreString, STORED_KEYS} from "../common/store";
-import sjcl from "./sjcl";
+import sjcl from "../common/external/sjcl";
+import {createChecksumFalse} from "../common/utils";
 
 /*
 * Request Body
@@ -38,6 +39,30 @@ export async function deletePackage(packageId) {
     SS_API.HEADERS.JSON,
     null,
     null,
+  )
+}
+
+/*
+* Request Body
+* vdr: boolean
+* packageUserEmail: string
+* */
+export async function finalizePackage(ssPackage, keyCode) {
+  console.log("*** finalizePackage ***");
+  const path = SS_API.PATH.FINALIZE_PACKAGE
+    .replace('{packageId}', ssPackage.packageId);
+  let checksum = createChecksumFalse(keyCode, ssPackage.packageCode);
+  return call(
+    'POST',
+    path,
+    SS_API.HEADERS.JSON,
+    null,
+    JSON.stringify({
+      checksum: checksum,
+      notifyRecipients: true,
+      readOnlyPdf: false,
+      undisclosedRecipients: false
+    }),
   )
 }
 
@@ -79,6 +104,40 @@ export async function createFile(packageId, fileUri, fileInfo) {
       filesize: fileInfo.size
     })
   );
+}
+
+export async function addMessage(packageId, message) {
+  console.log("*** uploadUrls ***");
+  const path = SS_API.PATH.ADD_MESSAGE
+    .replace("{packageId}", packageId)
+  return call(
+    'PUT',
+    path,
+    SS_API.HEADERS.JSON,
+    null,
+    JSON.stringify({
+      uploadType: "JS_API",
+      message: message
+    })
+  )
+}
+
+
+export async function uploadUrls(packageId, file) {
+  console.log("*** uploadUrls ***");
+  const path = SS_API.PATH.UPLOAD_URLS
+    .replace("{packageId}", packageId)
+    .replace("{fileId}", fileId);
+  return call(
+    'POST',
+    path,
+    SS_API.HEADERS.JSON,
+    null,
+    JSON.stringify({
+      forceProxy: false,
+      part: 1
+    })
+  )
 }
 
 /*

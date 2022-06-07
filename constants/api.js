@@ -4,7 +4,8 @@ export const SS_API = {
     API_KEY: "95tAwrAPiv-HC7ITEb9iMA",
     API_SECRET: "-cEaIbJaK25jVSB1pF_SuQ",
     EMAIL: "zack.blaylock@sendsafely.net",
-    LOCAL_NGROK: 'ab7c-136-55-151-24.ngrok.io',
+    PASSWORD: "password1!",
+    LOCAL_NGROK: 'a8f3-136-55-151-24.ngrok.io',
   },
   PROTOCOL: "https://",
   DEFAULT_WEB_DOMAIN: 'https://www.sendsafely.com',
@@ -25,8 +26,13 @@ export const SS_API = {
     CREATE_PACKAGE: '/api/v2.0/package/',
     GET_RECEIVED_PACKAGE: '/api/v2.0/package/received/',
     DELETE_PACKAGE: '/api/v2.0/package/{packageId}',
+    FINALIZE_PACKAGE: '/api/v2.0/package/{packageId}/finalize/',
     ADD_RECIPIENT: '/api/v2.0/package/{packageId}/recipient/',
     DELETE_RECIPIENT: '/api/v2.0/package/{packageId}/recipient/{recipientId}/',
-    CREATE_FILE: '/api/v2.0/package/{packageId}/file/'
+    CREATE_FILE: '/api/v2.0/package/{packageId}/file/',
+    ADD_FILE: '/api/v2.0/package/{packageId}/file/{fileId}',
+    UPLOAD_URLS: '/api/v2.0/package/{packageId}/file/{fileId}/upload-urls/',
+    ADD_MESSAGE: '/api/v2.0/package/{packageId}/message/',
+    UPLOAD_COMPLETE: '/api/v2.0/package/{packageId}/file/{fileId}/upload-complete/'
   }
 }

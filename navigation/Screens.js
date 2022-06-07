@@ -26,7 +26,7 @@ const Tab = createBottomTabNavigator();
 
 function SnapStack(props) {
   return (
-    <Stack.Navigator screenOptions={{mode: "card", headerShown: true}}>
+    <Stack.Navigator screenOptions={{mode: "card", headerShown: false}}>
       <Stack.Screen name="SnapStack" component={Snap} options={{
         header: ({ navigation, scene }) => (
           <Header title="Snap" navigation={navigation} scene={scene} />),
@@ -37,7 +37,7 @@ function SnapStack(props) {
 
 function HistoryStack(props) {
   return (
-    <Stack.Navigator screenOptions={{mode: "card", headerShown: true}}>
+    <Stack.Navigator screenOptions={{mode: "card", headerShown: false}}>
       <Stack.Screen name="HistoryStack" component={History} options={{
         header: ({ navigation, scene }) => (
           <Header title="History" navigation={navigation} scene={scene} />),
@@ -48,7 +48,7 @@ function HistoryStack(props) {
 
 function SettingsStack(props) {
   return (
-    <Stack.Navigator screenOptions={{mode: "card", headerShown: true}}>
+    <Stack.Navigator screenOptions={{mode: "card", headerShown: false}}>
       <Stack.Screen name="SettingsStack" component={Settings} options={{
         header: ({ navigation, scene }) => (
           <Header title="Settings" navigation={navigation} scene={scene} />),
@@ -92,18 +92,18 @@ export default function AppStack(props) {
       initialRouteName="Onboarding"
     >
       {/* MAIN ROUTES */}
-      <Drawer.Screen name="Snap" options={{ headerShown: false }} component={SnapStack} />
-      <Drawer.Screen name="History" options={{ headerShown: false }} component={HistoryStack} />
-      <Drawer.Screen name="Settings" options={{headerShown: false }} component={SettingsStack} />
+      <Drawer.Screen name="Snap" options={{ headerShown: true }} component={SnapStack} />
+      <Drawer.Screen name="History" options={{ headerShown: true }} component={HistoryStack} />
+      <Drawer.Screen name="Settings" options={{headerShown: true }} component={SettingsStack} />
       {/* MAIN ROUTES */}
       {/* MANUAL ROUTES */}
       <Drawer.Screen options={{ swipeEnabled: false, headerShown: false }} name="Account" component={RegisterStack}/>
       <Drawer.Screen options={{ swipeEnabled: false, headerShown: false }} name="Onboarding" component={OnboardingStack} />
       {/* MANUAL ROUTES */}
       {/* DEV ROUTES */}
-      <Drawer.Screen name="Home" options={{ headerShown: false }} component={HomeStack} />
-      <Drawer.Screen name="Profile" options={{ headerShown: false }} component={ProfileStack} />
-      <Drawer.Screen name="Elements" options={{ headerShown: false }} component={ElementsStack} />
+      <Drawer.Screen name="Home" options={{ headerShown: true }} component={HomeStack} />
+      <Drawer.Screen name="Profile" options={{ headerShown: true }} component={ProfileStack} />
+      <Drawer.Screen name="Elements" options={{ headerShown: true }} component={ElementsStack} />
       <Drawer.Screen name="Articles" options={{ headerShown: false }} component={ArticlesStack} />
       {/* DEV ROUTES */}
     </Drawer.Navigator>
@@ -114,7 +114,7 @@ export default function AppStack(props) {
 // DEV
 function ElementsStack(props) {
   return (
-    <Stack.Navigator screenOptions={{mode: "card", headerShown: false}}>
+    <Stack.Navigator screenOptions={{mode: "card", headerShown: "screen"}}>
       <Stack.Screen name="ElementsStack" component={Elements} options={{
         header: ({ navigation, scene }) => (
           <Header title="Elements" navigation={navigation} scene={scene} />),
